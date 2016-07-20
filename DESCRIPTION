@@ -1,13 +1,18 @@
 Package: EpiGenR
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Combined analysis of epidemiologic and genetic data to infer infectious disease dynamics
 Version: 0.1.0
-Author: Who wrote it
-Maintainer: Who to complain to <yourfault@somewhere.net>
-Description: More about what it does (maybe more than one line)
-License: What license is it under?
+Author: Lucy M Li
+Maintainer: Lucy M Li <ml3109@ic.ac.ukt>
+Description: This package contains functions to simulate epidemic data, parse existing data, generate input files for the EpiGenMCMC (github.com/lucymli/EpiGenMCMC) C++ program, and visualise output from EpiGenMCMC.
+License: MIT
 LazyData: TRUE
-Imports: 
-    Rcpp (>= 0.12.5)
-LinkingTo: 
+Imports:
+    Rcpp (>= 0.12.5),
+    ape,
+    phyclust,
+    seqinr,
+    lubridate,
+    ggplot2
+LinkingTo:
     Rcpp
