@@ -1,6 +1,6 @@
 ---
-title: "Vignette Title"
-author: "Vignette Author"
+title: "Epidemic simulation and inference from the simulated data"
+author: "Lucy M Li"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
@@ -9,50 +9,126 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-Vignettes are long form documentation commonly included in packages. Because they are part of the distribution of the package, they need to be as compact as possible. The `html_vignette` output type provides a custom style sheet (and tweaks some options) to ensure that the resulting html is as small as possible. The `html_vignette` format:
-
-- Never uses retina figures
-- Has a smaller default figure size
-- Uses a custom CSS stylesheet instead of the default Twitter Bootstrap style
-
-## Vignette Info
-
-Note the various macros within the `vignette` section of the metadata block above. These are required in order to instruct R how to build the vignette. Note that you should change the `title` field and the `\VignetteIndexEntry` to match the title of your vignette.
-
-## Styles
-
-The `html_vignette` template includes a basic CSS theme. To override this theme you can specify your own CSS in the document metadata as follows:
-
-    output: 
-      rmarkdown::html_vignette:
-        css: mystyles.css
-
-## Figures
-
-The figure sizes have been customised so that you can easily put two images side-by-side. 
-
-```{r, fig.show='hold'}
-plot(1:10)
-plot(10:1)
+```{r, echo=FALSE}
+knitr::opts_chunk$set(warning=FALSE, error=TRUE, message=FALSE)
+fig.counter <- 1
 ```
 
-You can enable figure captions by `fig_caption: yes` in YAML:
+## Model simulation
 
-    output:
-      rmarkdown::html_vignette:
-        fig_caption: yes
+We can simulate an outbreak using a branching process and track who-infected-whom in order to generate the transmission tree, and thus the phylogeny of the infectious pathogen. 
 
-Then you can use the chunk option `fig.cap = "Your figure caption."` in **knitr**.
+In the example here, we assume an S->I->R model of disease progression in which susceptible individuals become infected and capable of infecting others, and later recover and stop being infectious. The time to recovery is exponentially distributed with rate $\gamma$. Upon recovery, an infector infects $b_{0}$ number of individuals. The number of onward infections, i.e. `offspring', caused by each infected individual is a random variable drawn from a negative binomial offspring distribution $B \sim NBin(R, k)$ with mean $R=\frac{\sum_{i=0}^{N-1}b_i}{N}$, dispersion parameter $k$, and variance $\sigma^2 = R(1+\frac{R}{k})$. The mean of the offspring distribution is the reproductive number of the infectious disease, and is related to the basic reproduction number $R_0$ via the proportion of susceptible individuals in the population: $R=R_0\frac{S}{N}$. The parameter $k$ determines the level of overdispersion in the population. At smaller values of $k$, most individuals do not cause any further infections while a few contribute to most of the transmission events. 
 
-## More Examples
-
-You can write math expressions, e.g. $Y = X\beta + \epsilon$, footnotes^[A footnote here.], and tables, e.g. using `knitr::kable()`.
-
-```{r, echo=FALSE, results='asis'}
-knitr::kable(head(mtcars, 10))
+```{r model_params, echo=FALSE}
+#Rcpp::sourceCpp('../src/simulate.cpp')
+R0 <- 2
+k <- 0.5
+Tg <- 5
+N <- 20000
+S <- 19999
+dt <- 0.1
+total_dt <- 1500
+min_epi_size <- 20
+max_attempts <- 100
+params <- c(R0=R0, k=k, Tg=Tg, N=N, S=S, I=N-S)
 ```
 
-Also a quote using `>`:
+Setting $N=$ `r prettyNum(N, ",")`, $R_0=$ `r round(R0, 2)`, $k=$ `r k`, and duration of infectiousness $\frac{1}{\gamma}=$ `r Tg` days, we can simulate the outbreak using
 
-> "He who gives up [code] safety for [code] speed deserves neither."
-([via](https://twitter.com/hadleywickham/status/504368538874703872))
+```{r simulate_outbreak, cache=TRUE}
+seed.num <- 1010113
+set.seed(seed.num)
+sim.outbreak <- simulate_sir(params, dt, total_dt, min_epi_size, max_attempts, TRUE)
+```
+
+The offspring distribution of the simulated epidemic follows a negative binomial distribution
+
+`r fig.counter.offspring <- fig.counter`
+
+```{r offspring, echo=FALSE, fig.width=4, fig.height=3, fig.cap=paste0("Figure ", fig.counter, ". The offspring distribution of the simulated epidemic assuming R0=", R0, " and k=", k, "."), cache=TRUE}
+par(mar=c(5.1, 4.1, 0.25, 0.25))
+offspring <- rnbinom(10000, mu=R0, size=k)
+hist(offspring, xlab="Number of onward infections", main="")
+legend("topright", legend=paste0("R0=", round(R0, 2), " and k=", k))
+fig.counter <- fig.counter + 1
+```
+
+`r fig.counter.sim.traj <- fig.counter`
+
+The final epidemic size was `r prettyNum(sim.outbreak$total_infected, ",")`.
+
+
+## Simulated epidemic trajectories
+
+The epidemic trajectories denoted by the incidence and prevalence curves are shown in the Figure `r fig.counter.sim.traj` below. Assuming that infectious individuals are reported at the time of recovery, the incidence curve shows the daily number of reported cases.
+
+```{r simulated_trajectories, echo=FALSE, fig.show='hold', fig.width=7, fig.height=4, fig.cap=paste0("Figure ", fig.counter, ". The daily incidence and prevalence of the simulated epidemic. Incidence is defined as the reported cases on each day."), cache=TRUE}
+par(mar=c(5.1, 4.1, 0.25, 0.25))
+plot(sum_every((1:sim.outbreak$total_dt)*dt, round(1/dt))/round(1/dt),
+     sum_every(sim.outbreak$trajectories[, 3], round(1/dt)),
+     xlab="Time", ylab="Incidence per day", type="h")
+plot((1:sim.outbreak$total_dt)*dt,
+     sim.outbreak$trajectories[, 2],
+     xlab="Time", ylab="Prevalence", type="l")
+fig.counter <- fig.counter+1
+```
+
+## Transmission Tree
+
+By setting \texttt{track_transmissions} to \texttt{TRUE} we can track who infected whom in the outbreak and thus reconstruct the transmission tree. From the transmission tree, we can infer the pathogen phylogeny which describes the ancestral relationship between pathogen isolates from infected individuals.
+
+```{r simulate_transmission_tree, echo=FALSE, cache=TRUE}
+#Rcpp::sourceCpp("../src/transmission_tree.cpp")
+sim.transmission.tree <- as.data.frame(get_transmission_tree(sim.outbreak$infected))
+sim.transmission.tree$from <- as.factor(sim.transmission.tree$from)
+sim.transmission.tree$to <- as.factor(sim.transmission.tree$to)
+fig.counter.sim.graph <- fig.counter
+```
+
+We can visualise the transmission network using the \texttt{get_transmission_tree} function. Below is the transmission network of the first 100 infected people.
+
+```{r simulate_graph, echo=FALSE, fig.width=7, fig.height=7, fig.cap=paste0("Figure ", fig.counter, ". Transmission tree."), cache=TRUE}
+library(network)
+library(sna)
+library(GGally)
+sim.graph <- network(sim.transmission.tree[1:100, 1:2], directed=TRUE)
+sim.graph %e% "length" <- sim.transmission.tree[1:100, 3]
+ggnet2(sim.graph, arrow.size = 9, node.alpha=.5, label=TRUE)
+fig.counter <- fig.counter + 1
+```
+
+## Phylogeny 
+
+`r fig.counter.phylo <- fig.counter`
+
+The phylogenetic tree is related to the transmission tree. In the case of the latter, parents are represented by internal nodes whereas in the case of phylogenies, parents are represented by an external node (tip). The \texttt{get_phylo} function produces the phylogenetic tree for a given outbreak. Figure `r fig.counter.phylo` is the phylogenetic tree of the first 100 individuals to be infected during the epidemic.
+
+```{r simulate_tree, cache=TRUE}
+library(ape)
+library(parallel)
+tree <- get_phylo(sim.outbreak$infected)
+```
+
+
+```{r simulate_tree_plot, echo=FALSE, fig.width=7, fig.height=11, fig.cap=paste0("Figure ", fig.counter, ". Phylogeny of the first 100 individuals to be infected during the epidemic."), cache=TRUE}
+par(mar=c(0.5, 0.5, 0.5, 0.5))
+not.sampled.tips <- 101:length(tree$tip.label)
+subtree <- drop.tip(tree, not.sampled.tips)
+plot(subtree)
+fig.counter <- fig.counter + 1
+```
+
+`r fig.counter.phylo2 <- fig.counter`
+
+And the phylogeny of 100 randomly sampled individuals is given in Figure `r fig.counter.phylo2`.
+
+```{r simulate_tree_plot2, echo=FALSE, fig.width=7, fig.height=11, fig.cap=paste0("Figure ", fig.counter, ". Phylogeny of 100 randomly sampled individuals."), cache=TRUE}
+par(mar=c(0.5, 0.5, 0.5, 0.5))
+set.seed(101010)
+not.sampled.tips2 <- sample(1:length(tree$tip.label), length(tree$tip.label)-100)
+subtree2 <- drop.tip(tree, not.sampled.tips2)
+plot(subtree2)
+fig.counter <- fig.counter + 1
+```
+
