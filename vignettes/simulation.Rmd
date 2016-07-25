@@ -10,8 +10,18 @@ vignette: >
 ---
 
 ```{r, echo=FALSE}
-knitr::opts_chunk$set(warning=FALSE, error=TRUE, message=FALSE)
+knitr::opts_chunk$set(warning=FALSE, error=TRUE, message=FALSE, echo=TRUE)
 fig.counter <- 1
+
+library(ape)
+library(parallel)
+library(Rcpp)
+library(network)
+library(sna)
+library(GGally)
+Rcpp::sourceCpp('../src/simulate.cpp')
+Rcpp::sourceCpp('../src/transmission_tree.cpp')
+invisible(lapply(list.files("../R", full.names=TRUE), source))
 ```
 
 ## Model simulation
@@ -21,7 +31,6 @@ We can simulate an outbreak using a branching process and track who-infected-who
 In the example here, we assume an S->I->R model of disease progression in which susceptible individuals become infected and capable of infecting others, and later recover and stop being infectious. The time to recovery is exponentially distributed with rate $\gamma$. Upon recovery, an infector infects $b_{0}$ number of individuals. The number of onward infections, i.e. `offspring', caused by each infected individual is a random variable drawn from a negative binomial offspring distribution $B \sim NBin(R, k)$ with mean $R=\frac{\sum_{i=0}^{N-1}b_i}{N}$, dispersion parameter $k$, and variance $\sigma^2 = R(1+\frac{R}{k})$. The mean of the offspring distribution is the reproductive number of the infectious disease, and is related to the basic reproduction number $R_0$ via the proportion of susceptible individuals in the population: $R=R_0\frac{S}{N}$. The parameter $k$ determines the level of overdispersion in the population. At smaller values of $k$, most individuals do not cause any further infections while a few contribute to most of the transmission events. 
 
 ```{r model_params, echo=FALSE}
-#Rcpp::sourceCpp('../src/simulate.cpp')
 R0 <- 2
 k <- 0.5
 Tg <- 5
@@ -36,11 +45,12 @@ params <- c(R0=R0, k=k, Tg=Tg, N=N, S=S, I=N-S)
 
 Setting $N=$ `r prettyNum(N, ",")`, $R_0=$ `r round(R0, 2)`, $k=$ `r k`, and duration of infectiousness $\frac{1}{\gamma}=$ `r Tg` days, we can simulate the outbreak using
 
-```{r simulate_outbreak, cache=TRUE}
+```{r simulate_outbreak, cache=FALSE}
 seed.num <- 1010113
 set.seed(seed.num)
 sim.outbreak <- simulate_sir(params, dt, total_dt, min_epi_size, max_attempts, TRUE)
 ```
+
 
 The offspring distribution of the simulated epidemic follows a negative binomial distribution
 
@@ -66,10 +76,10 @@ The epidemic trajectories denoted by the incidence and prevalence curves are sho
 ```{r simulated_trajectories, echo=FALSE, fig.show='hold', fig.width=7, fig.height=4, fig.cap=paste0("Figure ", fig.counter, ". The daily incidence and prevalence of the simulated epidemic. Incidence is defined as the reported cases on each day."), cache=TRUE}
 par(mar=c(5.1, 4.1, 0.25, 0.25))
 plot(sum_every((1:sim.outbreak$total_dt)*dt, round(1/dt))/round(1/dt),
-     sum_every(sim.outbreak$trajectories[, 3], round(1/dt)),
+     sum_every(sim.outbreak$infected[, 3], round(1/dt)),
      xlab="Time", ylab="Incidence per day", type="h")
 plot((1:sim.outbreak$total_dt)*dt,
-     sim.outbreak$trajectories[, 2],
+     sim.outbreak$prevalence,
      xlab="Time", ylab="Prevalence", type="l")
 fig.counter <- fig.counter+1
 ```
@@ -79,7 +89,6 @@ fig.counter <- fig.counter+1
 By setting \texttt{track_transmissions} to \texttt{TRUE} we can track who infected whom in the outbreak and thus reconstruct the transmission tree. From the transmission tree, we can infer the pathogen phylogeny which describes the ancestral relationship between pathogen isolates from infected individuals.
 
 ```{r simulate_transmission_tree, echo=FALSE, cache=TRUE}
-#Rcpp::sourceCpp("../src/transmission_tree.cpp")
 sim.transmission.tree <- as.data.frame(get_transmission_tree(sim.outbreak$infected))
 sim.transmission.tree$from <- as.factor(sim.transmission.tree$from)
 sim.transmission.tree$to <- as.factor(sim.transmission.tree$to)
@@ -89,9 +98,6 @@ fig.counter.sim.graph <- fig.counter
 We can visualise the transmission network using the \texttt{get_transmission_tree} function. Below is the transmission network of the first 100 infected people.
 
 ```{r simulate_graph, echo=FALSE, fig.width=7, fig.height=7, fig.cap=paste0("Figure ", fig.counter, ". Transmission tree."), cache=TRUE}
-library(network)
-library(sna)
-library(GGally)
 sim.graph <- network(sim.transmission.tree[1:100, 1:2], directed=TRUE)
 sim.graph %e% "length" <- sim.transmission.tree[1:100, 3]
 ggnet2(sim.graph, arrow.size = 9, node.alpha=.5, label=TRUE)
@@ -105,8 +111,6 @@ fig.counter <- fig.counter + 1
 The phylogenetic tree is related to the transmission tree. In the case of the latter, parents are represented by internal nodes whereas in the case of phylogenies, parents are represented by an external node (tip). The \texttt{get_phylo} function produces the phylogenetic tree for a given outbreak. Figure `r fig.counter.phylo` is the phylogenetic tree of the first 100 individuals to be infected during the epidemic.
 
 ```{r simulate_tree, cache=TRUE}
-library(ape)
-library(parallel)
 tree <- get_phylo(sim.outbreak$infected)
 ```
 
@@ -131,4 +135,28 @@ subtree2 <- drop.tip(tree, not.sampled.tips2)
 plot(subtree2)
 fig.counter <- fig.counter + 1
 ```
+
+## Producing time-series data from simulation
+
+Inferring parameters of dynamic disease models such as the SIR require data to be in time-series format, i.e. a quantity per time step. For epidemiologic data, this could be the number of reported cases per day. If data collected during an outbreak is in the form of a line list where each line contains information about an infected individual, this can be converted to time-series format using the function \texttt{time_series_from_line_list}. The first column should contain the ID of the infected individual and the second column the time of reporting. Here we assumed that an individual was reported upon recovery.
+
+
+```{r time_series_from_line_list, cache=TRUE}
+sampling.prob <- 0.01
+set.seed(seed.num)
+sampled.sim.outbreak <- downsample(sim.outbreak, strategy="proportional", prob=sampling.prob)
+epi_data <- time_series_from_line_list(sampled.sim.outbreak, step_size=1)
+head(epi_data)
+```
+
+
+```{r time_series_from_tree, cache=TRUE}
+subtree <- drop.tip(reorder.phylo(tree, "postorder"), which(!(1:length(tree$tip.label) %in% sampled.sim.outbreak$sampled_individuals)))
+plot(subtree, show.tip.label=FALSE)
+
+```
+
+
+
+
 
