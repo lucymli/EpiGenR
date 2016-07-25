@@ -15,7 +15,11 @@ count_cases <- function (times, time_vector) {
 #'
 #' @examples
 time_series_from_line_list <- function (line_list, step_size=1, split_by=NULL) {
-  rounded_times <- ceiling(line_list[, 2]/step_size)
+  if (is.list(line_list)) {
+    if ("total_sampled" %in% names(line_list)) line_list <- line_list$infected_sampled[, 3]
+    else line_list <- line_list$infected[, 3]
+  }
+  rounded_times <- ceiling(line_list/step_size)
   max_rounded_time <- max(rounded_times)
   time_vec <- 1:max_rounded_time
   if (is.null(split_by)) {
