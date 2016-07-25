@@ -104,6 +104,7 @@ get_phylo <- function (epidemic) {
   ntip <- nrow(epidemic)
   tree <- create_tree_from_edges(ntip, edge_mat, edge_lengths, replace_nodes,
                                  paste0(1:nrow(epidemic)-1, "_", epidemic$recovery_time))
+  reorder.phylo(tree, order="postorder")
   return(tree)
 }
 
