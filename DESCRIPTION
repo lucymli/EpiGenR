@@ -16,3 +16,6 @@ Imports:
     ggplot2
 LinkingTo:
     Rcpp
+Suggests: knitr,
+    rmarkdown
+VignetteBuilder: knitr
