@@ -17,5 +17,8 @@ Imports:
 LinkingTo:
     Rcpp
 Suggests: knitr,
-    rmarkdown
+    rmarkdown,
+    network,
+    sna,
+    GGally
 VignetteBuilder: knitr
