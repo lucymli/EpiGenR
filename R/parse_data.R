@@ -84,6 +84,14 @@ get_tip_sample_times <- function (tr) {
   return(tip_sample_times)
 }
 
+time_series_from_tree <- function (tr, step_size=1) {
+  time_series_from_line_list(get_tip_sample_times(tr), step_size=step_size)
+}
+
+get_last_tip_time <- function (tr) {
+  return(max(get_tip_sample_times(tr)))
+}
+
 #' Aligns the epidemic time-series with the genealogical time-series in time
 #'
 #' @param epi A data frame where the first column denotes time and the second column onwards contains the count
@@ -116,4 +124,24 @@ align_epi_gen_data <- function (epi, gen, dt, last_tip_time) {
                             matrix(0, nrow=last_tip_dt- last_epi_dt, ncol=ncol(epi)-1)))
   }
   return(list(epi=epi, gen=gen))
+}
+
+get_data <- function (epi=NULL, phy=NULL, dt=1) {
+  epi_data <- gen_data <- NULL
+  use.epi <- !is.null(epi)
+  use.gen <- !is.null(phy)
+  if (!is.null(epi)) {
+    epi_data <- time_series_from_line_list(epi, dt)
+  }
+  if (!is.null(phy)) {
+    gen_data <- time_series_from_tree(phy, dt)
+  }
+  if (use.epi&&use.gen) {
+    all_data <- align_epi_gen_data(epi_data, gen_data, dt, get_last_tip_time(phy))
+  } else if (use.epi) {
+    all_data <- epi_data
+  } else {
+    all_data <- gen_data
+  }
+  return (all_data)
 }
