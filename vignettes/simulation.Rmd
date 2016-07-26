@@ -9,19 +9,15 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r, echo=FALSE}
+```{r, warning=FALSE, error=FALSE, message=FALSE, echo=TRUE}
 knitr::opts_chunk$set(warning=FALSE, error=TRUE, message=FALSE, echo=TRUE)
 fig.counter <- 1
 
-library(ape)
-library(parallel)
-library(Rcpp)
-library(network)
-library(sna)
-library(GGally)
+libs  <- c("ape", "parallel", "Rcpp", "network", "sna", "GGally", "ggplot2")
+invisible(lapply(libs, library, character.only=TRUE, warn.conflicts=FALSE, quietly=TRUE, verbose=FALSE))
+invisible(lapply(list.files("../R", full.names=TRUE), source))
 Rcpp::sourceCpp('../src/simulate.cpp')
 Rcpp::sourceCpp('../src/transmission_tree.cpp')
-invisible(lapply(list.files("../R", full.names=TRUE), source))
 ```
 
 ## Model simulation
@@ -34,8 +30,8 @@ In the example here, we assume an S->I->R model of disease progression in which 
 R0 <- 2
 k <- 0.5
 Tg <- 5
-N <- 20000
-S <- 19999
+N <- 5000
+S <- 4999
 dt <- 0.1
 total_dt <- 1500
 min_epi_size <- 20
@@ -50,6 +46,10 @@ seed.num <- 1010113
 set.seed(seed.num)
 sim.outbreak <- simulate_sir(params, dt, total_dt, min_epi_size, max_attempts, TRUE)
 ```
+
+
+
+
 
 
 The offspring distribution of the simulated epidemic follows a negative binomial distribution
@@ -75,12 +75,11 @@ The epidemic trajectories denoted by the incidence and prevalence curves are sho
 
 ```{r simulated_trajectories, echo=FALSE, fig.show='hold', fig.width=7, fig.height=4, fig.cap=paste0("Figure ", fig.counter, ". The daily incidence and prevalence of the simulated epidemic. Incidence is defined as the reported cases on each day."), cache=TRUE}
 par(mar=c(5.1, 4.1, 0.25, 0.25))
-plot(sum_every((1:sim.outbreak$total_dt)*dt, round(1/dt))/round(1/dt),
-     sum_every(sim.outbreak$infected[, 3], round(1/dt)),
-     xlab="Time", ylab="Incidence per day", type="h")
+plot(time_series_from_line_list(sim.outbreak),
+     xlab="Days since start of epidemic", ylab="Incidence per day", type="h")
 plot((1:sim.outbreak$total_dt)*dt,
      sim.outbreak$prevalence,
-     xlab="Time", ylab="Prevalence", type="l")
+     xlab="Days since start of epidemic", ylab="Prevalence", type="l")
 fig.counter <- fig.counter+1
 ```
 
@@ -123,18 +122,6 @@ plot(subtree)
 fig.counter <- fig.counter + 1
 ```
 
-`r fig.counter.phylo2 <- fig.counter`
-
-And the phylogeny of 100 randomly sampled individuals is given in Figure `r fig.counter.phylo2`.
-
-```{r simulate_tree_plot2, echo=FALSE, fig.width=7, fig.height=11, fig.cap=paste0("Figure ", fig.counter, ". Phylogeny of 100 randomly sampled individuals."), cache=TRUE}
-par(mar=c(0.5, 0.5, 0.5, 0.5))
-set.seed(101010)
-not.sampled.tips2 <- sample(1:length(tree$tip.label), length(tree$tip.label)-100)
-subtree2 <- drop.tip(tree, not.sampled.tips2)
-plot(subtree2)
-fig.counter <- fig.counter + 1
-```
 
 ## Producing time-series data from simulation
 
@@ -143,20 +130,53 @@ Inferring parameters of dynamic disease models such as the SIR require data to b
 
 ```{r time_series_from_line_list, cache=TRUE}
 sampling.prob <- 0.01
+data.dt <- 1
 set.seed(seed.num)
 sampled.sim.outbreak <- downsample(sim.outbreak, strategy="proportional", prob=sampling.prob)
-epi_data <- time_series_from_line_list(sampled.sim.outbreak, step_size=1)
+epi_data <- time_series_from_line_list(sampled.sim.outbreak, step_size=data.dt)
 head(epi_data)
 ```
 
 
-```{r time_series_from_tree, cache=TRUE}
+`r fig.counter.phylo2 <- fig.counter`
+
+And the phylogeny of the randomly sampled individuals is given in Figure `r fig.counter.phylo2`.
+
+```{r time_series_from_tree,  echo=FALSE, fig.width=7, fig.height=11, fig.cap=paste0("Figure ", fig.counter, ". Phylogeny of ", sampled.sim.outbreak$total_sampled, " randomly sampled individuals."), cache=TRUE}
 subtree <- drop.tip(reorder.phylo(tree, "postorder"), which(!(1:length(tree$tip.label) %in% sampled.sim.outbreak$sampled_individuals)))
 plot(subtree, show.tip.label=FALSE)
-
+fig.counter <- fig.counter + 1
 ```
 
 
+```{r time_series_from_tree2}
+gen_data <- time_series_from_tree(subtree, step_size=data.dt)
+```
 
+
+We can also obtain time-series data for both at the same time:
+
+```{r time_series}
+all_data <- get_data(epi=sampled.sim.outbreak, phy=subtree, dt=data.dt)
+str(all_data)
+```
+
+## Create input files for EpiGenMCMC program
+
+```{r create_input}
+param_list <- create_params_list(
+  param_names=c("R0", "k", "rateI2R", "N", "S", "reporting", "time_before_data"), # All parameter values
+  init_param_values=c(R0, k, 1/Tg, N, S, sampling.prob, 10), # Initial parameter values
+  params_to_estimate=c("R0", "k", "rateI2R", "reporting", "time_before_data"), # Names of parameters to be estimated
+  transform=c(NA, "inverse", "inverse", NA, NA), # The algorithm will estimate the value of the transformed parameter
+  prior=c("unif", "unif", "unif", "beta", "unif"), # Prior distribution
+  prior_params=list(c(1.0, 100.0), c(1.0, 10000.0), c(1.0, 30.0), c(1.0, 3.0), c(0.0, 300.0)), # Parameters for the prior distribution
+  proposal_params=list(c(0.5, 1.0, 100.0), c(1.0, 1.0, 10000.0), c(1.0, 1.0, 30.0), c(0.05, 0.0, 1.0), c(20.0, 0.0, 300.0))) # SD of proposal distribution, and the range of parameter values to be explored 
+mcmc_options <- create_mcmc_options (particles=1000, iterations=1000, log_every=1, pfilter_every=20, 
+                                     which_likelihood=0, # 0= use both epi and genetic data, 1=use only epi data, 2=use only genetic data
+                                     pfilter_threshold=1.0,
+                                 log_filename="log.txt", traj_filename="traj.txt")
+
+```
 
 
