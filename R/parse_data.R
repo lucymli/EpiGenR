@@ -135,6 +135,16 @@ align_epi_gen_data <- function (epi, gen, dt, last_tip_time) {
   return(list(epi=epi, gen=gen))
 }
 
+#' Produce data from line list, phylogeny, or both.
+#'
+#' @param epi
+#' @param phy
+#' @param dt
+#'
+#' @return
+#' @export
+#'
+#' @examples
 get_data <- function (epi=NULL, phy=NULL, dt=1) {
   epi_data <- gen_data <- NULL
   use.epi <- !is.null(epi)
