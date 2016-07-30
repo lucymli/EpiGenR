@@ -51,13 +51,16 @@ generate_cpp_input_files <- function(dt, params, mcmc_options, initial_states, d
   return (commandline.command)
 }
 
-create_mcmc_options <- function (particles=1000, iterations=1000, log_every=1, pfilter_every=20, which_likelihood=0, pfilter_threshold=1.0,
-                                 log_filename="log.txt", traj_filename="traj.txt") {
+create_mcmc_options <- function (particles=1000, iterations=1000, log_every=1, pfilter_every=20,
+                                 which_likelihood=0, pfilter_threshold=1.0, num_threads=4, heat_factor=NA,
+                                 heat_length=NA, cool_rate=NA, log_filename="log.txt", traj_filename="traj.txt") {
   mcmc_options <- c(particles=particles, iterations=iterations, log_every=log_every,
                     pfilter_every=pfilter_every, which_likelihood=which_likelihood,
-                    pfilter_threshold=pfilter_threshold, log_filename=log_filename,
+                    pfilter_threshold=pfilter_threshold, num_threads=num_threads,
+                    heat_factor=heat_factor, heat_length=heat_length, cool_rate=cool_rate,
+                    log_filename=log_filename,
                     traj_filename=traj_filename)
-  return (mcmc_options)
+  return (mcmc_options[!is.na(mcmc_options)])
 }
 
 
