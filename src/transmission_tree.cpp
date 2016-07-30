@@ -1,4 +1,4 @@
-#include <omp.h>
+//#include <omp.h>
 #include <Rcpp.h>
 using namespace Rcpp;
 
@@ -23,9 +23,9 @@ NumericMatrix get_transmission_tree(SEXP Repidemic) {
   double curr_infection_time;
   double parent_infection_time;
   double edge_length;
-  int threads = omp_get_max_threads();
-  omp_set_num_threads(threads);
-#pragma omp parallel for
+//  int threads = omp_get_max_threads();
+//  omp_set_num_threads(threads);
+//#pragma omp parallel for
   for (int i=counter; i<epidemic.nrow(); ++i) {
     long parent_id = epidemic(i, 0);
     if (parent_id > -1) {
