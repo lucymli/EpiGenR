@@ -84,6 +84,15 @@ get_tip_sample_times <- function (tr) {
   return(tip_sample_times)
 }
 
+#' Obtain phylogenetic data in the form of a time-series
+#'
+#' @param tr
+#' @param step_size
+#'
+#' @return
+#' @export
+#'
+#' @examples
 time_series_from_tree <- function (tr, step_size=1) {
   time_series_from_line_list(get_tip_sample_times(tr), step_size=step_size)
 }
