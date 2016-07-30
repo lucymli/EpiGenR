@@ -4,6 +4,14 @@ get.timed.tr <- function (tr, mol.clock.rate) {
   return (tr)
 }
 
+#' Get the times between coalescent or sampling events, and the lineages during each interval
+#'
+#' @param tr
+#'
+#' @return
+#' @export
+#'
+#' @examples
 coalescent.intervals.datedPhylo <- function (tr) {
   n <- length(tr$tip.label)
   e1 <- tr$edge[, 1]
@@ -48,19 +56,16 @@ coalescent.intervals.datedPhylo <- function (tr) {
 }
 
 
-coal.in.discrete.time <- function (ci, dt) {
-  #
-  # For a given dateCI object, return the number of coalescent events and lineages
-  # in each dt interval
-  #
-  # Inputs
-  #   ci - datedCI object
-  #   dt - size of time intervals to divide the genealogical time series
-  # Returns a list object of times, num of coalescences and lineages
-  # The times are given backwards, and denotes the end of a time interval.
-  # ltt refers to the number of lineages at the start of a dt interval
-  # coal refers to the number of coalescent events occurring in that dt interval
-  #
+#' For a given dateCI object, return the number of coalescent events and lineages in each dt interval
+#'
+#' @param ci output from coalescent.intervals.datedPhylo
+#' @param dt size of time intervals to divide the genealogical time series
+#'
+#' @return a list object of times, num of coalescences and lineages. ltt refers to the number of lineages at the start of a dt interval. coal refers to the number of coalescent events occurring in that dt interval
+#' @export
+#'
+#' @examples
+num.coal.in.dt <- function (ci, dt) {
   coal.time.intervals <- ceiling(cumsum(ci$interval.length)[ci$is.coalescent]/dt)*dt
   sample.time.intervals <- ceiling(cumsum(ci$interval.length)[!ci$is.coalescent]/dt)*dt
   dt.time.intervals <- seq(dt, ceiling(max(coal.time.intervals)/dt)*dt, by=dt)
@@ -83,19 +88,16 @@ coal.in.discrete.time <- function (ci, dt) {
   list(dt=dt.time.intervals, coal=num.coal, ltt=ltt)
 }
 
-coal.times.in.discrete.time <- function (ci, dt) {
-  #
-  # For a given dateCI object, return the times of coalescent events within each
-  # dt interval
-  #
-  # Inputs
-  #   ci - datedCI object
-  #   dt - size of time intervals to divide the genealogical time series
-  # Returns a list object of times, num of coalescences and lineages
-  # The times are given backwards, and denotes the end of a time interval.
-  # ltt refers to the number of lineages at the start of a dt interval
-  # coal refers to the number of coalescent events occurring in that dt interval
-  #
+#' For a given dateCI object, return the times of coalescent events within each dt interval
+#'
+#' @param ci output from coalescent.intervals.datedPhylo
+#' @param dt size of time intervals to divide the genealogical time series
+#'
+#' @return a list object of times, num of coalescences and lineages. The times are given backwards, and denotes the end of a time interval. ltt refers to the number of lineages at the start of a dt interval. coal refers to the number of coalescent events occurring in that dt interval
+#' @export
+#'
+#' @examples
+coal.intervals.in.discrete.time <- function (ci, dt) {
   tmrca <- sum(ci$interval.length)
   num.dt <- ceiling(tmrca/dt)
   dt.time.intervals <- seq(dt, by=dt, length.out=num.dt)
@@ -123,14 +125,15 @@ coal.times.in.discrete.time <- function (ci, dt) {
 
 
 
+#' Classic skyline for heterochronous tree
+#'
+#' @param ci output from coalescent.intervals.datedPhylo
+#'
+#' @return
+#' @export
+#'
+#' @examples
 skyline.with.sampling <- function (ci) {
-  #
-  # For a given datedCI object return the skyline for each coalescent interval
-  #
-  # Inputs:
-  #   ci - datedCI object
-  # Returns an object of class 'datedSkyline'
-  #
   coal.which <- which(ci$is.coalescent)
   diffs <- diff(c(0, coal.which))
   coal.interval.lengths <- ci$interval.length
@@ -152,21 +155,38 @@ skyline.with.sampling <- function (ci) {
   obj
 }
 
-# ----- Main functions ------#
+
+#' For a given tree, calculate the classic skyline
+#'
+#' @param tr
+#'
+#' @return
+#' @export
+#'
+#' @examples
 skyline.datedPhylo <- function (tr) {
-  # tr should be of class 'datedPhylo'
   ci <- coalescent.intervals(tr)
   skyline.with.sampling(ci)
 }
 
+#' Calculates the classic skyline for each tree in file
+#'
+#' @details  For a set of unrooted trees, remove the burnin trees and root the rest at the root.node. Limit the total number of output trees to be less than max.trees
+#' @param tr.filenames
+#' @param nex
+#' @param root.node
+#' @param param.filenames
+#' @param burninfrac
+#' @param max.trees
+#' @param skyline.time.steps
+#'
+#' @return
+#' @export
+#'
+#' @examples
 Phylos2Skyline <- function (tr.filenames, nex=TRUE, root.node=NULL,
                              param.filenames, burninfrac=0.5, max.trees=1000,
                              skyline.time.steps=1000) {
-  #
-  # For a set of unrooted trees, remove the burnin trees and root the rest at
-  # the root.node. Limit the total number of output trees to be less than max.trees
-  #
-  require(ape)
   if (class(tr.filenames)=="phylo") {
     trs <- tr.filenames
   } else {
@@ -203,26 +223,18 @@ Phylos2Skyline <- function (tr.filenames, nex=TRUE, root.node=NULL,
   return (list(trees=trs, coalescent.intervals=coalescent.intervals, skylines=skylines, average.skyline=average.skyline))
 }
 
-#
-# For a given set of skyline plots, take the average skyline at each delta t
-# to provide an overall averaged skyline plot
-#
-# Author: Lucy Li
-# Date: February 2014
-#
-
-
+#' Calculates the average value of Ne*Tg at each time point, for a given set classic skylines calculated from a set of trees.
+#'
+#' @details For a given set of skyline plots, take the average skyline in each dt interval to provide an overall averaged skyline plot
+#' @param skylines a list of 'skyline' objects generated from phylogenies of the same set of sequences
+#' @param total.time.points an integer number of time points in the output
+#' @param return.all.Ne whether to return a dataframe containing the Ne for each tree at each time point.
+#'
+#' @return
+#' @export
+#'
+#' @examples
 SmoothSkylines <- function (skylines, total.time.points=10000, return.all.Ne=FALSE) {
-  #
-  # Averages over many skylines to generate a smoothed skyline plot
-  #
-  # Input:
-  #   skylines - a list of 'skyline' objects generated from phylogenies
-  #              of the same set of sequences
-  #   total.time.points - an integer; number of time points in the output
-  #
-  # Returns an object of class 'skyline'
-  #
   all.time.points <- do.call(rbind, lapply(seq_along(skylines), function (i) {
     cbind(c(0, skylines[[i]]$time), i)
   }))
