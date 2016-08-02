@@ -120,7 +120,8 @@ coal.intervals.in.discrete.time <- function (ci, dt) {
     }
     return (output)
   })
-  list(dt=dt.time.intervals, coal=gdata)
+  return (gdata)
+  # list(dt=dt.time.intervals, coal=gdata)
 }
 
 
