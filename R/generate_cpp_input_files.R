@@ -15,7 +15,9 @@ generate_cpp_input_files <- function(dt, params, mcmc_options, initial_states, d
   if (is.null(initial_states_file)) initial_states_file <- tempfile(fileext="_initial_states.txt")
   if (is.null(data_file)) data_file <- tempfile()
   # file.create(data_file)
-  num_dt <- nrow(data[[1]])
+  if (mcmc_options["which_likelihood"]==0) num_dt <- nrow(data[[1]])
+  else if (mcmc_options["which_likelihood"]==1) num_dt <- nrow(data)
+  else num_dt <- length(data)
   filenames <- c()
   if (mcmc_options["which_likelihood"]<2) {
     epi_name <- paste0(data_file, "_epi_data.txt")
@@ -28,14 +30,16 @@ generate_cpp_input_files <- function(dt, params, mcmc_options, initial_states, d
     }
     filenames <- c(filenames, epi_name)
   }
-    if (mcmc_options["which_likelihood"]!=1) {
+  if (mcmc_options["which_likelihood"]!=1) {
     mcmc_options["num_trees"] <- 1
     gen_name <- paste0(data_file, "_gen_data.txt")
     cat(num_dt, dt, sep="\n", file=gen_name)
-    out <- lapply(data[[2]], function (x) {
+    if (mcmc_options["which_likelihood"]==0) gen_data <- data[[2]]
+    else gen_data <- data
+    out <- lapply(gen_data, function (x) {
       cat(paste(x$binomial, collapse=" "), sep="\n", file=gen_name, append=TRUE)
     })
-    out <- lapply(data[[2]], function (x) {
+    out <- lapply(gen_data, function (x) {
       cat(paste(x$intervals, collapse=" "), sep="\n", file=gen_name, append=TRUE)
     })
     filenames <- c(filenames, gen_name)
@@ -80,24 +84,23 @@ create_params_list <- function (param_names=c("param"), init_param_values=c(1),
                             "prior", "prior_param1", "prior_param2", "prior_param3",
                             "proposal", "proposal_sd", "proposal_min", "proposal_max"
                             )
+  input_params2[, c(paste0("prior_param", 1:3), "proposal_sd", "proposal_min", "proposal_max")] <- 0.0
   input_params2$param_value <- init_param_values
   input_params2$param_name <- param_names
-  input_params2$param_to_estimate <- tolower(estimate)
+  input_params2$estimate <- tolower(estimate)
   input_params2$prior <- NA
   input_params2$prior[estimate] <- prior
   input_params2$proposal <- NA
   if (is.null(proposal)) input_params2$proposal[estimate] <- "normal"
   a <- lapply(1:length(prior_params), function (i) {
+    j <- which(estimate)[i]
     input_params2[which(estimate)[i], "prior_param1"] <<- prior_params[[i]][1]
-    if (length(prior_params) > 1) input_params2[which(estimate)[i], "prior_param2"] <<- prior_params[[i]][2]
-    if (length(prior_params) > 2) input_params2[which(estimate)[i], "prior_param3"] <<- prior_params[[i]][3]
-    input_params2$proposal_sd[which(estimate)[i]] <<- proposal_params[[i]][1]
-    input_params2$proposal_min[which(estimate)[i]] <<- proposal_params[[i]][2]
-    input_params2$proposal_max[which(estimate)[i]] <<- proposal_params[[i]][3]
+    if (length(prior_params[[j]]) > 1) input_params2[j, "prior_param2"] <<- prior_params[[i]][2]
+    if (length(prior_params[[j]]) > 2) input_params2[j, "prior_param3"] <<- prior_params[[i]][3]
+    input_params2$proposal_sd[j] <<- proposal_params[[i]][1]
+    input_params2$proposal_min[j] <<- proposal_params[[i]][2]
+    input_params2$proposal_max[j] <<- proposal_params[[i]][3]
   })
-  input_params2$prior_param1[!estimate] <- input_params2$prior_param2[!estimate] <-
-    input_params2$prior_param3[!estimate] <- input_params2$proposal_sd[!estimate] <-
-    input_params2$proposal_min[!estimate] <- input_params2$proposal_max[!estimate] <- NA
   params_list <- c(input_params1, lapply(1:nrow(input_params2), function (i) input_params2[i, ]))
   return(params_list)
 }
