@@ -88,13 +88,15 @@ create_params_list <- function (param_names=c("param"), init_param_values=c(1),
   input_params2$param_value <- init_param_values
   input_params2$param_name <- param_names
   input_params2$estimate <- tolower(estimate)
+  input_params2$transform <- NA
   input_params2$prior <- NA
   input_params2$prior[estimate] <- prior
   input_params2$proposal <- NA
   if (is.null(proposal)) input_params2$proposal[estimate] <- "normal"
   a <- lapply(1:length(prior_params), function (i) {
     j <- which(estimate)[i]
-    input_params2[which(estimate)[i], "prior_param1"] <<- prior_params[[i]][1]
+    input_params$transform[j] <<- transform[i]
+    input_params2[j, "prior_param1"] <<- prior_params[[i]][1]
     if (length(prior_params[[j]]) > 1) input_params2[j, "prior_param2"] <<- prior_params[[i]][2]
     if (length(prior_params[[j]]) > 2) input_params2[j, "prior_param3"] <<- prior_params[[i]][3]
     input_params2$proposal_sd[j] <<- proposal_params[[i]][1]
