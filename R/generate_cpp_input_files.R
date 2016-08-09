@@ -95,7 +95,7 @@ create_params_list <- function (param_names=c("param"), init_param_values=c(1),
   if (is.null(proposal)) input_params2$proposal[estimate] <- "normal"
   a <- lapply(1:length(prior_params), function (i) {
     j <- which(estimate)[i]
-    input_params$transform[j] <<- transform[i]
+    input_params2$transform[j] <<- transform[i]
     input_params2[j, "prior_param1"] <<- prior_params[[i]][1]
     if (length(prior_params[[j]]) > 1) input_params2[j, "prior_param2"] <<- prior_params[[i]][2]
     if (length(prior_params[[j]]) > 2) input_params2[j, "prior_param3"] <<- prior_params[[i]][3]
