@@ -1,6 +1,6 @@
 
 get.timed.tr <- function (tr, mol.clock.rate) {
-  tr$edge.length <- tr$edge.length * mol.clock.rate
+  tr$edge.length <- tr$edge.length / mol.clock.rate
   return (tr)
 }
 
@@ -187,7 +187,7 @@ skyline.datedPhylo <- function (tr) {
 #' @examples
 Phylos2Skyline <- function (tr.filenames, nex=TRUE, root.node=NULL,
                              param.filenames, burninfrac=0.5, max.trees=1000,
-                             skyline.time.steps=1000) {
+                             skyline.time.steps=1000, outgroup=NULL) {
   if (class(tr.filenames)=="phylo") {
     trs <- tr.filenames
   } else {
@@ -217,6 +217,9 @@ Phylos2Skyline <- function (tr.filenames, nex=TRUE, root.node=NULL,
       trs <- mapply(get.timed.tr, rooted.trs, clock.rates, SIMPLIFY=FALSE)
       return (trs)
     }), recursive=FALSE)
+  }
+  if (!is.null(outgroup)) {
+    trs <- lapply(trs, ape::drop.tip, outgroup)
   }
   coalescent.intervals <- lapply(trs, coalescent.intervals.datedPhylo)
   skylines <- lapply(coalescent.intervals, skyline.with.sampling)
