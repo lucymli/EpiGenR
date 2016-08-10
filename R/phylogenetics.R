@@ -1,3 +1,36 @@
+#' Add one or more outgroup edges to a tree
+#'
+#' @param tree
+#' @param num.outgroups
+#' @param second.tree
+#'
+#' @return
+#' @export
+#'
+#' @examples
+add.outgroup <- function (tree, num.outgroups=1, second.tree=NULL) {
+  if (is.null(second.tree)) {
+    tree.height <- coalescent.intervals.datedPhylo(tree)$total.depth
+    temp.tree <- rtree(max(2, num.outgroups))
+    temp.tree$edge.length <- temp.tree$edge.length*tree.height/max(temp.tree$edge.length)
+  } else {
+    temp.tree <- second.tree
+  }
+  temp.tree$root.edge <- 1
+  new.tree <- ape::bind.tree(tree, temp.tree)
+  if (is.null(second.tree)) {
+    if (num.outgroups==1) {
+      new.tree <- drop.tip(new.tree, "t2")
+    }
+    final.tree <- root(new.tree, paste0("t", 1:num.outgroups), resolve.root=TRUE)
+  } else {
+    final.tree <- root(new.tree, second.tree$tip.label, resolve.root=TRUE)
+  }
+  return (final.tree)
+}
+
+
+
 #' Simulate sequences
 #'
 #' @param tree A tree in the form of a phylo object
