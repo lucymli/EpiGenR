@@ -1,6 +1,6 @@
 
 get.timed.tr <- function (tr, mol.clock.rate) {
-  tr$edge.length <- tr$edge.length * mol.clock.rate
+  tr$edge.length <- tr$edge.length / mol.clock.rate
   return (tr)
 }
 
