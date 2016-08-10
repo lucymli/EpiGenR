@@ -177,7 +177,7 @@ generate.MrBayes.input <- function (input.fn, output.fn, set.tip.date=TRUE,
                      " Samplefreq=", Samplefreq, " Savetrees=", ifelse(Savetrees, "Yes", "No"),
                      " Filename=", outfile.name, " ;"),
               "mcmc;",
-              ifelse(is.null(burn.in), NULL, paste0("sumt=", round(burn.in*Ngen/Samplefreq), ";\nsump=", round(burn.in*Ngen/Samplefreq))),
+              ifelse(is.null(burn.in), NULL, paste0("sumt burnin=", round(burn.in*Ngen/Samplefreq), ";\nsump burnin=", round(burn.in*Ngen/Samplefreq))),
               "end;"
   )
 
