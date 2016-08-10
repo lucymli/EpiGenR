@@ -247,7 +247,7 @@ SmoothSkylines <- function (skylines, total.time.points=10000, return.all.Ne=FAL
   Ne.time.series <- do.call(cbind, lapply(seq_along(skylines), function (i) {
     sky.times <- sorted.time.points[sorted.time.points[, 2] == i, 1]
     time.select <- sapply(final.times, function (x) tail(which(sky.times <= x), 1))
-    Ne <- skylines[[i]]$Skyline$population.size[time.select]
+    Ne <- skylines[[i]]$population.size[time.select]
     Ne[is.na(Ne)] <- 0
     return(Ne)
 
