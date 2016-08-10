@@ -56,7 +56,6 @@ sim.seq <- function (tree, out.fasta.file=NULL, model="GTR", base.freqs=c(A=0.25
   }
 
   if (!is.null(out.fasta.file)) {
-    require(LucyR)
     ci <- coalescent.intervals.datedPhylo(tree)
 
     msg <- sapply(1:length(out), function (i) {
