@@ -125,7 +125,7 @@ generate.MrBayes.input <- function (input.fn, output.fn, set.tip.date=TRUE,
                                     outgroup=NULL, Ngen=2e7,
                                     Printfreq=1e6, Samplefreq=1e4,
                                     Savetrees=TRUE,
-                                    burn.in=NULL,
+                                    burn.in=NULL
 ) {
   sequences <- seqinr::read.fasta(input.fn, forceDNAtolower=FALSE, as.string=TRUE)
   outfile.name <- tail(strsplit(output.fn, "/")[[1]], 1)
