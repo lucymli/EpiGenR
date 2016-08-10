@@ -118,10 +118,14 @@ write.GB.to.file <- function (accession, file.name, file.format="fasta", seq.nam
 #' @examples
 generate.MrBayes.input <- function (input.fn, output.fn, set.tip.date=TRUE,
                                     nt.subst.model=2, rates="gamma", mol.clock="uniform",
-                                    clockratepr="normal(0.01, 0.005)", units="years",
+                                    clockratepr=NULL,#"normal(0.01, 0.005)",
+                                    units="years",
                                     statefreqpr=NULL,
-                                    treeagepr=NULL, outgroup=NULL, Ngen=2e7,
-                                    Printfreq=1e6, Samplefreq=1e4, Savetrees=TRUE
+                                    treeagepr=NULL,#"gamma(10, 0.1)",
+                                    outgroup=NULL, Ngen=2e7,
+                                    Printfreq=1e6, Samplefreq=1e4,
+                                    Savetrees=TRUE,
+                                    burn.in=NULL,
 ) {
   sequences <- seqinr::read.fasta(input.fn, forceDNAtolower=FALSE, as.string=TRUE)
   outfile.name <- tail(strsplit(output.fn, "/")[[1]], 1)
@@ -145,7 +149,8 @@ generate.MrBayes.input <- function (input.fn, output.fn, set.tip.date=TRUE,
   }
   if (!is.null(mol.clock)) {
     mol.clock.line <- paste0("prset brlenspr=clock:", mol.clock,
-                             " nodeagepr=calibrated clockratepr=", clockratepr,
+                             " nodeagepr=calibrated ",
+                             ifelse(is.null(clockratepr), "", paste0("clockratepr=", clockratepr)),
                              ifelse(is.null(treeagepr), "", paste0(" treeagepr=", treeagepr)),
                              ";")
   }
@@ -172,6 +177,7 @@ generate.MrBayes.input <- function (input.fn, output.fn, set.tip.date=TRUE,
                      " Samplefreq=", Samplefreq, " Savetrees=", ifelse(Savetrees, "Yes", "No"),
                      " Filename=", outfile.name, " ;"),
               "mcmc;",
+              ifelse(is.null(burn.in), NULL, paste0("sumt=", round(burn.in*Ngen/Samplefreq), ";\nsump=", round(burn.in*Ngen/Samplefreq))),
               "end;"
   )
 
