@@ -8,24 +8,14 @@
 #' @export
 #'
 #' @examples
-add.outgroup <- function (tree, num.outgroups=1, second.tree=NULL) {
+add.outgroup <- function (tree, num.outgroups=1, second.tree=NULL, scale=1) {
   if (is.null(second.tree)) {
-    tree.height <- coalescent.intervals.datedPhylo(tree)$total.depth
-    temp.tree <- rtree(max(2, num.outgroups))
-    temp.tree$edge.length <- temp.tree$edge.length*tree.height/max(temp.tree$edge.length)
+    temp.tree <- rtree(num.outgroups+1)
+    temp.tree$edge.length <- temp.tree$edge.length*scale
   } else {
     temp.tree <- second.tree
   }
-  temp.tree$root.edge <- 1
-  new.tree <- ape::bind.tree(tree, temp.tree)
-  if (is.null(second.tree)) {
-    if (num.outgroups==1) {
-      new.tree <- drop.tip(new.tree, "t2")
-    }
-    final.tree <- root(new.tree, paste0("t", 1:num.outgroups), resolve.root=TRUE)
-  } else {
-    final.tree <- root(new.tree, second.tree$tip.label, resolve.root=TRUE)
-  }
+  final.tree <- ape::bind.tree(temp.tree, tree, where=1)
   return (final.tree)
 }
 
