@@ -1,3 +1,12 @@
+#' Sum a vector of numbers in non-overlapping groups of x
+#'
+#' @param vec
+#' @param every
+#'
+#' @return
+#' @export
+#'
+#' @examples
 sum_every <- function (vec, every = 1) {
   vec <- as.numeric(vec)
   len <- length(vec)
@@ -9,4 +18,37 @@ sum_every <- function (vec, every = 1) {
     sum(vec[begin[i]:end[i]])
   })
   return(out)
+}
+
+
+#' Calculates the corresponding lognormal parameters for a given mean and sd
+#'
+#' @param MEAN
+#' @param SD
+#'
+#' @return
+#' @export
+#'
+#' @examples
+get_lognormal_params <- function (MEAN, SD) {
+  zeta <- -0.5*log(SD^2+MEAN^2)
+  sigma <- log(SD^2 + MEAN^2) - 2*log(MEAN)
+  return (c(zeta, sigma))
+}
+
+
+#' Generates random numbers according to the log-normal distribution with mean and sd
+#' defined in non transformed space
+#'
+#' @param N
+#' @param MEAN
+#' @param SD
+#'
+#' @return
+#' @export
+#'
+#' @examples
+rlnorm_real <- function (N, MEAN, SD) {
+  transformed <- get_lognormal_params(MEAN, SD)
+  rlnorm(N, transformed[1], transformed[2])
 }
