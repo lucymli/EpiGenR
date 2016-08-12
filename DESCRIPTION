@@ -13,7 +13,8 @@ Imports:
     phyclust,
     seqinr,
     lubridate,
-    ggplot2
+    ggplot2,
+    coda
 LinkingTo:
     Rcpp
 Suggests: knitr,

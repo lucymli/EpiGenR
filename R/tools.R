@@ -52,3 +52,20 @@ rlnorm_real <- function (N, MEAN, SD) {
   transformed <- get_lognormal_params(MEAN, SD)
   rlnorm(N, transformed[1], transformed[2])
 }
+
+#' Get the median and 95% HPD interval of a vector
+#'
+#' @param vec
+#' @param conf
+#'
+#' @return
+#' @export
+#'
+#' @examples
+hpd <- function (vec, conf=0.95) {
+  x <- as.numeric(vec)
+  if (all(is.na(x))) return (rep(NA, 3))
+  med <- median(x, na.rm=TRUE)
+  ci <- HPDinterval(mcmc(x), conf)
+  return(c(median=med, lower=ci[1], upper=ci[2]))
+}
