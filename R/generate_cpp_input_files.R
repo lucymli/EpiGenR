@@ -21,11 +21,13 @@ generate_cpp_input_files <- function(dt, params, mcmc_options, initial_states, d
   filenames <- c()
   if (mcmc_options["which_likelihood"]<2) {
     epi_name <- paste0(data_file, "_epi_data.txt")
-    if (ncol(data[[1]]) == 2) {
-      cat(num_dt, dt, 1, data[[1]][, 2], sep="\n", file=epi_name)
+    if (mcmc_options["which_likelihood"]==0) epi_data <- data[[1]]
+    else epi_data <- data
+    if (ncol(epi_data) == 2) {
+      cat(num_dt, dt, 1, epi_data[, 2], sep="\n", file=epi_name)
     } else {
-      cat(num_dt, dt, ncol(data[[1]])-1, sep="\n", file=epi_name)
-      write.table(data[[1]][, -1], quote=FALSE, row.names=FALSE, col.names=FALSE, sep=" ",
+      cat(num_dt, dt, ncol(epi_data)-1, sep="\n", file=epi_name)
+      write.table(epi_data[, -1], quote=FALSE, row.names=FALSE, col.names=FALSE, sep=" ",
                   file=epi_name, append=TRUE)
     }
     filenames <- c(filenames, epi_name)
