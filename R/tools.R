@@ -31,9 +31,9 @@ sum_every <- function (vec, every = 1) {
 #'
 #' @examples
 get_lognormal_params <- function (MEAN, SD) {
-  sigma <- sqrt(log(1+(SD/MEAN)^2))
-  zeta <- log(E/sigma)
-  return (c(zeta, sigma))
+  sigma <- sqrt(log(1 + (SD/MEAN)^2))
+  zeta <- log(MEAN/sqrt(1+(SD/MEAN)^2))
+  return(c(zeta, sigma))
 }
 
 
