@@ -35,3 +35,41 @@ plot.mcmc.trace <- function (x, burnin=NULL, excludes=NULL) {
   ggplot(y) + geom_line(aes(x=iteration, y=value)) +
     facet_grid(variable~., scales="free_y")
 }
+
+
+#' Plot the posterior distribution of pMCMC analysis with one, or both of epi and phylogenetic data
+#'
+#' @param param.name
+#' @param dataset
+#' @param new.param.name
+#' @param fill.colours
+#' @param show.legend
+#'
+#' @return
+#' @export
+#'
+#' @examples
+plot.posterior <- function (param.name, dataset, new.param.name=NULL, fill.colours=NULL, show.legend=TRUE) {
+  require (ggplot2)
+  require(lubridate)
+  hpd.interval <- t(as.data.frame(lapply(split(dataset[, param.name], dataset$data.type), function (x) {
+    if (is.Date(x[1])) hpd.interval <- as.Date(date_decimal(EpiGenR::hpd(decimal_date(unlist(x)))))
+    else hpd.interval <- EpiGenR::hpd(x)
+    return (hpd.interval)
+  })))
+  Plot <- ggplot(dataset) +
+    theme_classic() +
+    geom_density(aes_string(x=param.name, fill="data.type"), alpha=.4) +
+    xlim(min(unlist(hpd.interval[, 2])), max(unlist(hpd.interval[, 3]))) +
+    scale_fill_manual(name="Data")
+  if (!is.null(fill.colours)) {
+    Plot <- Plot + scale_fill_manual(values=fill.colours, name="Data")
+  }
+  if (!is.null(new.param.name)) {
+    Plot <- Plot + xlab(new.param.name)
+  }
+  if (!show.legend) {
+    Plot <- Plot + theme(legend.position="none")
+  }
+  return (Plot)
+}
