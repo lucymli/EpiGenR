@@ -58,7 +58,7 @@ plot.posterior <- function (param.name, dataset, new.param.name=NULL, fill.colou
     return (hpd.interval)
   })))
   Plot <- ggplot(dataset) +
-    theme_classic() +
+    theme_bw() +
     geom_density(aes_string(x=param.name, fill="data.type"), alpha=.4) +
     xlim(min(unlist(hpd.interval[, 2])), max(unlist(hpd.interval[, 3]))) +
     scale_fill_manual(name="Data")
