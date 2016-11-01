@@ -52,16 +52,28 @@ plot.mcmc.trace <- function (x, burnin=NULL, excludes=NULL) {
 plot.posterior <- function (param.name, dataset, new.param.name=NULL, fill.colours=NULL, show.legend=TRUE) {
   require (ggplot2)
   require(lubridate)
-  hpd.interval <- t(as.data.frame(lapply(split(dataset[, param.name], dataset$data.type), function (x) {
-    if (is.Date(x[1])) hpd.interval <- as.Date(date_decimal(EpiGenR::hpd(decimal_date(unlist(x)))))
+  require(coda)
+  hpd.interval <- do.call(data.frame, lapply(split(dataset[, param.name], dataset$data.type), function (x) {
+    if (is.Date(x[1])) {
+      parsed.x <- as.numeric(x-(min(x)-1))
+      hpd.interval <- hpd(parsed.x) + (min(x)-1)
+      #hpd.interval <- as.Date(date_decimal(EpiGenR::hpd(decimal_date(unlist(x)))))
+    }
     else hpd.interval <- EpiGenR::hpd(x)
     return (hpd.interval)
-  })))
+  }))
   Plot <- ggplot(dataset) +
     theme_bw() +
     geom_density(aes_string(x=param.name, fill="data.type"), alpha=.4) +
-    xlim(min(unlist(hpd.interval[, 2])), max(unlist(hpd.interval[, 3]))) +
     scale_fill_manual(name="Data")
+  if (is.Date(hpd.interval[1,1])) {
+    Plot <- Plot +
+      scale_x_date(limits=c(min(do.call("c", hpd.interval[2, ])),
+                            max(do.call("c", hpd.interval[3, ]))))
+  } else {
+    Plot <- Plot +
+      xlim(min(unlist(hpd.interval[2, ])), max(unlist(hpd.interval[3, ])))
+  }
   if (!is.null(fill.colours)) {
     Plot <- Plot + scale_fill_manual(values=fill.colours, name="Data")
   }
