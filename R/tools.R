@@ -62,10 +62,21 @@ rlnorm_real <- function (N, MEAN, SD) {
 #' @export
 #'
 #' @examples
-hpd <- function (vec, conf=0.95) {
+hpd <- function (vec, conf=0.95, show.median=TRUE) {
   x <- as.numeric(vec)
   if (all(is.na(x))) return (rep(NA, 3))
   med <- median(x, na.rm=TRUE)
-  ci <- HPDinterval(mcmc(x), conf)
-  return(c(median=med, lower=ci[1], upper=ci[2]))
+  ci <- coda::HPDinterval(mcmc(x), conf)
+  out <- c(median=med, lower=ci[1], upper=ci[2])
+  return(ifelse(show.median, out, out[-1]))
+}
+
+hpd.Date <- function (vec, conf=0.95, show.median=TRUE) {
+  if (all(is.na(vec))) return (rep(NA, 3))
+  start.date <- min(vec[!is.na[vec]])-1
+  x <- as.numeric(vec[!is.na[vec]] - start.date)
+  med <- median(x, na.rm=TRUE)
+  ci <- coda::HPDinterval(coda::mcmc(x), conf)
+  out <- c(median=med, lower=ci[1], upper=ci[2]) + start.date
+  return(ifelse(show.median, out, out[-1]))
 }
