@@ -188,7 +188,7 @@ skyline.datedPhylo <- function (tr) {
 Phylos2Skyline <- function (tr.filenames, nex=TRUE, root.node=NULL,
                              param.filenames, burninfrac=0.5, max.trees=1000,
                              skyline.time.steps=1000, outgroup=NULL) {
-  if (class(tr.filenames)=="phylo") {
+  if (class(tr.filenames)%in%c("phylo", "multiPhylo", "list")) {
     trs <- tr.filenames
   } else {
     trs <- unlist(lapply(1:length(tr.filenames), function (i) {
