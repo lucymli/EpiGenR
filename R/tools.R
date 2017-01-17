@@ -68,7 +68,8 @@ hpd <- function (vec, conf=0.95, show.median=TRUE) {
   med <- median(x, na.rm=TRUE)
   ci <- coda::HPDinterval(mcmc(x), conf)
   out <- c(median=med, lower=ci[1], upper=ci[2])
-  return(ifelse(show.median, out, out[-1]))
+  if (show.median) return (out)
+  else return (out[-1])
 }
 
 hpd.Date <- function (vec, conf=0.95, show.median=TRUE) {
@@ -78,5 +79,6 @@ hpd.Date <- function (vec, conf=0.95, show.median=TRUE) {
   med <- median(x, na.rm=TRUE)
   ci <- coda::HPDinterval(coda::mcmc(x), conf)
   out <- c(median=med, lower=ci[1], upper=ci[2]) + start.date
-  return(ifelse(show.median, out, out[-1]))
+  if (show.median) return (out)
+  else return (out[-1])
 }
