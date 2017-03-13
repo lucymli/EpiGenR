@@ -14,7 +14,9 @@ Imports:
     seqinr,
     lubridate,
     ggplot2,
-    coda
+    coda,
+    dplyr,
+    magrittr
 LinkingTo:
     Rcpp
 Suggests: knitr,
