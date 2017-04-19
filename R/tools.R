@@ -82,3 +82,10 @@ hpd.Date <- function (vec, conf=0.95, show.median=TRUE) {
   if (show.median) return (out)
   else return (out[-1])
 }
+
+str_to_sentence <- function (strings) {
+  if (length(strings)==1) return (strings)
+  if (length(strings)==2) return (paste(strings, collapse=" and "))
+  part1 <- paste(strings[1:(length(strings)-1)], collapse=", ")
+  return(paste0(part1, tail(strings, 1), sep=", and "))
+}
