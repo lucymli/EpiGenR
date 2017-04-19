@@ -89,3 +89,7 @@ str_to_sentence <- function (strings) {
   part1 <- paste(strings[1:(length(strings)-1)], collapse=", ")
   return(paste0(part1, tail(strings, 1), sep=", and "))
 }
+
+values_ci_to_str <- function (values, sep=", ") {
+  paste0(values[1], " (", values[2], sep, values[3], ")")
+}
