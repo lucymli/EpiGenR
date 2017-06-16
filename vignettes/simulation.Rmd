@@ -2,7 +2,9 @@
 title: "Epidemic simulation and inference from the simulated data"
 author: "Lucy M Li"
 date: "`r Sys.Date()`"
-output: rmarkdown::html_vignette
+output: 
+  rmarkdown::html_vignette:
+    keep_md: true
 vignette: >
   %\VignetteIndexEntry{Vignette Title}
   %\VignetteEngine{knitr::rmarkdown}
@@ -211,10 +213,10 @@ param_list <- create_params_list(
   param_names=c("R0", "k", "rateI2R", "N", "S", "reporting", "time_before_data"), # All parameter values
   init_param_values=c(8e-5, k, 1/Tg, N, S, sampling.prob, 0), # Initial parameter values
   params_to_estimate=c("R0", "k", "rateI2R", "reporting"), # Names of parameters to be estimated
-  transform=c(NA, NA, NA, NA, NA), # The algorithm will estimate the value of the transformed parameter
-  prior=c("unif", "gamma", "unif", "beta", "unif"), # Prior distribution
+  transform=c(NA, NA, "inverse", NA), # The algorithm will estimate the value of the transformed parameter
+  prior=c("unif", "gamma", "unif", "beta"), # Prior distribution
   prior_params=list(c(0.0, 0.01), c(2.5, 1/2.5), c(1.0, 30.0), c(1.0, 3.0)), # Parameters for the prior distribution
-  proposal_params=list(c(5e-5, 0.0, 0.01), c(0.1, 0.001, 5), c(1.0, 1.0, 30.0), c(0.05, 0.0, 1.0)),  
+  proposal_params=list(c(5e-6, 0.0, 0.01), c(0.05, 0.001, 5), c(1.0, 1.0, 30.0), c(0.05, 0.0, 1.0)),  
   # proposal_params: each element of the list includes the standard deviation 
   # of proposal distribution, and the range of parameter values to be explored
   optimal_acceptance=0.234,
@@ -233,14 +235,16 @@ mcmc_options <- create_mcmc_options (
   num_threads=4, # number of cores to use during parallelised particle filtering
   log_filename="log.txt", traj_filename="traj.txt")
 
+input_dir <- tempdir()
+
 input_files <- EpiGenR::generate_cpp_input_files(
   dt=dt, params=param_list, initial_states=c(S=S, I=1, R=0),
   data=both_data,
   mcmc_options=mcmc_options,
-  params_file = paste0(tmp, "/param.txt"), 
-  mcmc_options_file = paste0(tmp, "/mcmc_options.txt"), 
-  initial_states_file = paste0(tmp, "/initial_states.txt"), 
-  data_file = paste0(tmp, "/data")
+  params_file = paste0(input_dir, "/param.txt"), 
+  mcmc_options_file = paste0(input_dir, "/mcmc_options.txt"), 
+  initial_states_file = paste0(input_dir, "/initial_states.txt"), 
+  data_file = paste0(input_dir, "/data")
   )
 ```
 
@@ -260,7 +264,7 @@ g++-6 -fopenmp -lgsl -Imodels *.cpp models/SIR_offspring_distribution.cpp -o SIR
 I would recommend running the program from the terminal:
 
 ```{r run_terminal, eval=FALSE, echo=TRUE}
-print(paste("/path/to/EpiGenMCMC/SIRmodel ", input_files))
+cat(paste("cd", input_dir, ";\n /path/to/EpiGenMCMC/./SIRmodel ", gsub(paste0(input_dir, "/"), "", input_files)))
 ```
 
 However it can also be run from the R console using:
@@ -268,4 +272,47 @@ However it can also be run from the R console using:
 ```{r run, eval=FALSE}
 EpiGenR::run_pMCMC("/path/to/EpiGenMCMC/src/SIRmodel", input_files, wait=TRUE)
 ```
+
+
+# 5. Simulate from model using C++
+
+To check that the model has been coded correctly in C++, you might want to simulate 
+epidemics from the model. To do this, another C++ program needs to be compiled:
+
+```{r sim_compile, engine="bash"}
+g++-6 -fopenmp -lgsl simulate/main.cpp model.cpp parameter.cpp trajectory.cpp models/SIR_offspring_distribution.cpp -o simulate
+```
+
+The arguments for the simulation program are (in order)
+
+1. name of parameter file ("param.txt")
+2. number of repeated simulations
+3. total number of simulation time steps
+4. dt, size of simulation time step
+5. size of aggregation (e.g. 10 -> report the number of newly infected individuals every 10 simulation time steps)
+6. number of subpopulations (should set this to 1)
+7. Random number seed
+8. Number of cores to split the particle filtering
+9. Initial states ("initial_states.txt")
+10. Name of output file
+
+```{r sim_run, engine="bash"}
+./simulate param.txt 10 1000 0.1 10 1 718247194 4 initial_states.txt simulation_output.txt
+```
+
+ model_params(argv[1]);
+    std::vector <double> values = model_params.get_values_vector();
+    std::vector <std::string> param_names = model_params.get_names_vector();
+    std::cout << "Read in a total of " << model_params.get_total_params() << " parameters." << std::endl;
+    int replicates = std::stoi(argv[2]);
+    int total_dt = std::stoi(argv[3]);
+    double dt_size = std::stod(argv[4]);
+    int sum_every = std::stoi(argv[5]);
+    int num_groups = std::stoi(argv[6]);
+    int seed_num = std::stoi(argv[7]);
+    int num_threads = std::stoi(argv[8]);
+    std::string traj_input = argv[9];
+    std::string traj_output = argv[10];
+
+
 
