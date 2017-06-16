@@ -11,6 +11,8 @@ vignette: >
 
 ```{r, warning=FALSE, error=FALSE, message=FALSE, echo=TRUE}
 library(EpiGenR)
+library(GGally)
+library(network)
 library(ape)
 library(ggplot2)
 library(grid)
@@ -22,7 +24,7 @@ knitr::opts_chunk$set(warning=FALSE, error=TRUE, message=FALSE, echo=TRUE)
 1. Simulate epidemic data
 2. Convert line list data and pathogen phylogeny into list objects
 3. Construct input objects for inference
-4. Call the EpiGenMCMC program to estimate parameters
+4. Compile and call the EpiGenMCMC program to estimate parameters
 
 ## 1. Simulate epidemic data
 
@@ -133,20 +135,19 @@ plot(subtree)
 
 Inferring parameters of dynamic disease models such as the SIR require data to be in time-series format, i.e. a quantity per time step. For epidemiologic data, this could be the number of reported cases per day. If data collected during an outbreak is in the form of a line list where each line contains information about an infected individual, this can be converted to time-series format using the function \texttt{time_series_from_line_list}. The first column should contain the ID of the infected individual and the second column the time of reporting. Here we assumed that an individual was reported upon recovery.
 
+First, down-sample the outbreaks:
 
 ```{r time_series_from_line_list, cache=TRUE}
 sampling.prob <- 0.01
 data.dt <- 1
 set.seed(seed.num)
 sampled.sim.outbreak <- downsample(sim.outbreak, strategy="proportional", prob=sampling.prob)
-epi_data <- time_series_from_line_list(sampled.sim.outbreak, step_size=data.dt)
-head(epi_data)
 ```
 
 
 `r fig.counter.phylo2 <- length(fig.counter) + 1; fig.counter$phylo2 <- fig.counter.phylo2`
 
-And the phylogeny of the randomly sampled individuals is given in Figure `r fig.counter.phylo2`.
+The phylogeny of the randomly sampled individuals is given in Figure `r fig.counter.phylo2`.
 
 ```{r time_series_from_tree,  fig.width=7, fig.height=11, fig.cap=paste0("Figure ", fig.counter$phylo2, ". Phylogeny of ", sampled.sim.outbreak$total_sampled, " randomly sampled individuals. This is a subtree of the full phylogeny of N=", sim.outbreak$total_infected, " individuals."), cache=TRUE}
 subtree <- drop.tip(reorder.phylo(tree, "postorder"), which(!(1:length(tree$tip.label) %in% sampled.sim.outbreak$sampled_individuals)))
@@ -154,34 +155,66 @@ plot(subtree, show.tip.label=FALSE)
 ```
 
 
-```{r time_series_from_tree2, eval=FALSE, echo=FALSE}
-gen_data <- time_series_from_tree(subtree, step_size=data.dt)
+# 3. Construct input objects for inference
+
+## Generate data files
+
+Usually, epidemiological data appears in the form of a line list. To get the epidemiological data 
+for the down-sampled outbreak (observed incidence over time), use the 
+'time_series_from_line_list' function which takes the sampling times of individuals, and 
+the temporal resolution (step_size) as arguments. For example, if step_size=0.1 days,
+then the number of individuals in each 0.1 day interval is counted.
+
+```{r get_sample_epi_data}
+epi.sampling.times <- sampled.sim.outbreak$infected_sampled[, 3]
+epi_data <- time_series_from_line_list(epi.sampling.times, step_size=dt)
+head(epi_data)
 ```
+
+In reality, data are unlikely to be reported at a more-than-daily frequency. In the inference
+algorithm, there is another parameter that controls how much to aggregate the epidemiological 
+data. See the 'mcmc_options <- .....' line in Section 3, Subsection: "Create input files for EpiGenMCMC program". 
+By setting the 'pfilter_every" argument to a value greater than 1/0.1=10, the incidence 
+time series will be aggregated at a daily level. E.g. when pfilter_every=70, likelihood 
+is calculated by comparing the simulated incidence over the course of 7 days to the 
+observed incidence over the same 7 day period.
+
+
+The 'coalescent.intervals.datedPhylo' function can be used generate a list object containing
+information on lineages through time and time intervals between coalescent events.
+This list object can then be passed to the 'coal.intervals.in.discrete.time' function
+to create the object 
 
 ```{r gdata}
-gen_data <- EpiGenR::coal.intervals.in.discrete.time(EpiGenR::coalescent.intervals.datedPhylo(subtree), data.dt)
+subtree.ci <- coalescent.intervals.datedPhylo(subtree)
+gen_data <- coal.intervals.in.discrete.time(subtree.ci, dt=dt)
 ```
 
-<!--To ensure that the epidemiological and genetic data start and finish at the same time, 
-run:-->
+If the TMRCA of the phylogeny starts earlier than the time series, or if the most 
+recent sequence is not from the last individual that appears in the incidence time
+series, then the two sets of data need to be aligned such that they start and end
+on the same dates. The 'align_epi_gen_data' function can be used for this purpose. 
+The 'last_tip_time' argument refers to the number of days (whatever the simulation time
+unit is) between the start of the epidemic time series and the time of the last sampled
+sequence.
 
 ```{r alldata, eval=FALSE, echo=FALSE}
-#EpiGenR::align_epi_gen_data(epi_data, gen_data, data.dt, sampled.sim.outbreak$sampled_individuals)
+both_data <- 
+  align_epi_gen_data(epi=epi_data, gen=gen_data, dt=dt, 
+                     last_tip_time=with(sampled.sim.outbreak, max(infected[sampled_individuals, 3])))
 ```
-
-# 3. Construct input objects for inference
 
 ## Create input files for EpiGenMCMC program
 
 ```{r create_input, eval=FALSE}
 param_list <- create_params_list(
   param_names=c("R0", "k", "rateI2R", "N", "S", "reporting", "time_before_data"), # All parameter values
-  init_param_values=c(R0, k, 1/Tg, N, S, sampling.prob, 10), # Initial parameter values
+  init_param_values=c(8e-5, k, 1/Tg, N, S, sampling.prob, 0), # Initial parameter values
   params_to_estimate=c("R0", "k", "rateI2R", "reporting"), # Names of parameters to be estimated
   transform=c(NA, NA, "inverse", NA, NA), # The algorithm will estimate the value of the transformed parameter
   prior=c("unif", "unif", "unif", "beta", "unif"), # Prior distribution
-  prior_params=list(c(1.0, 100.0), c(1.0, 10000.0), c(1.0, 30.0), c(1.0, 3.0)), # Parameters for the prior distribution
-  proposal_params=list(c(0.5, 1.0, 100.0), c(0.1, 0.001, 10), c(1.0, 1.0, 30.0), c(0.05, 0.0, 1.0)),  
+  prior_params=list(c(0.0, 0.01), c(1.0, 10000.0), c(1.0, 30.0), c(1.0, 3.0)), # Parameters for the prior distribution
+  proposal_params=list(c(5e-5, 0.0, 0.01), c(0.1, 0.001, 10), c(1.0, 1.0, 30.0), c(0.05, 0.0, 1.0)),  
   # proposal_params: each element of the list includes the standard deviation 
   # of proposal distribution, and the range of parameter values to be explored
   optimal_acceptance=0.234,
@@ -192,20 +225,26 @@ param_list <- create_params_list(
 
 
 mcmc_options <- create_mcmc_options (
-  particles=1000, iterations=1000, log_every=1, pfilter_every=20, 
+  particles=5000, iterations=1000, 
+  log_every=1, # how often to save parameter estimates
+  pfilter_every=10, # resample particles every 10*0.1 days (i.e. 1 day), where each simulation time step is 0.1 days
   which_likelihood=0, # 0= use both epi and genetic data, 1=use only epi data, 2=use only genetic data
   pfilter_threshold=1.0, # filter particles when ESS < this threshold
   num_threads=4, # number of cores to use during parallelised particle filtering
   log_filename="log.txt", traj_filename="traj.txt")
 
 input_files <- EpiGenR::generate_cpp_input_files(
-  dt=dt, params=param_list, initial_states=list(S=S, I=1, R=0),
-  data=list(epi_data, gen_data),
-  mcmc_options=mcmc_options
+  dt=dt, params=param_list, initial_states=c(S=S, I=1, R=0),
+  data=both_data,
+  mcmc_options=mcmc_options,
+  params_file = paste0(tmp, "/param.txt"), 
+  mcmc_options_file = paste0(tmp, "/mcmc_options.txt"), 
+  initial_states_file = paste0(tmp, "/initial_states.txt"), 
+  data_file = paste0(tmp, "/data")
   )
 ```
 
-# 4. Compile C++ program
+# 4. Compile C++ program (EpiGenMCMC) and use to to estimate model parameters
 
 As the default clang compiler on Mac OSX does not support OpenMP, a separate compiler
 needs to be installed on the computer in order to compile code that uses OpenMP. The
@@ -214,16 +253,14 @@ gcc compiler can be downloaded from here: https://gcc.gnu.org/wiki/openmp
 Usually to compile C++ code, the gcc compiler to use is 'g++-6'
 
 ```{r C++ program, engine="bash", eval=FALSE, echo=TRUE}
-cd /path/to/EpiGenMCMC/src/
+cd /path/to/EpiGenMCMC/
 g++-6 -fopenmp -lgsl -Imodels *.cpp models/SIR_offspring_distribution.cpp -o SIRmodel
 ```
-
-# 5. Call the EpiGenMCMC program to estimate parameters
 
 I would recommend running the program from the terminal:
 
 ```{r run_terminal, eval=FALSE, echo=TRUE}
-print(paste("/path/to/EpiGenMCMC/src/SIRmodel", input_files))
+print(paste("/path/to/EpiGenMCMC/SIRmodel ", input_files))
 ```
 
 However it can also be run from the R console using:
