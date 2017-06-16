@@ -12,6 +12,9 @@ vignette: >
 ```{r, warning=FALSE, error=FALSE, message=FALSE, echo=TRUE}
 library(EpiGenR)
 library(ape)
+library(ggplot2)
+library(grid)
+library(gridExtra)
 fig.counter <- list()
 knitr::opts_chunk$set(warning=FALSE, error=TRUE, message=FALSE, echo=TRUE)
 ```
@@ -21,7 +24,7 @@ knitr::opts_chunk$set(warning=FALSE, error=TRUE, message=FALSE, echo=TRUE)
 3. Construct input objects for inference
 4. Call the EpiGenMCMC program to estimate parameters
 
-## 1. Model simulation
+## 1. Simulate epidemic data
 
 In the example here, I simulate an epidemic according to a stochastic SIR model, which is a state space model with 3 state variables: Susceptible, Infected, and Removed. Two events can occur to change the state variable values: infection and recovery. Simulation takes in discrete steps indexed by $t$, where each step size is $dt$. During each small time interval $[(t-1)\cdot dt, t\cdot dt]$, the number of recovery events given $I_t$ infected individuals and a recovery rate of $\gamma$ is approximate binomial $\textrm{recoveries}_t\sim Bin(I_t,\gamma \Delta t)$. Assuming all onward transmissions occur at recovery, the number of infection events during a time interval $[(t-1)\cdot dt, t\cdot dt]$ follows the offspring distribution which I model using the negative binomial $\textrm{infections}_t \sim NBin(\textrm{recoveries}_t\times R_t,\textrm{recoveries}_t \times k)$.
 
@@ -57,14 +60,14 @@ The offspring distribution of the simulated epidemic follows a negative binomial
 
 `r fig.counter.offspring <- length(fig.counter) + 1; fig.counter$offspring <- fig.counter.offspring`
 
-```{r offspring, echo=FALSE, fig.width=4, fig.height=3, fig.cap=paste0("Figure ", fig.counter, ". The offspring distribution of the simulated epidemic assuming R0=", R0, " and k=", k, "."), cache=TRUE}
+```{r offspring, fig.width=4, fig.height=3, fig.cap=paste0("Figure ", fig.counter$offspring, ". The offspring distribution of the simulated epidemic assuming R0=", R0, " and k=", k, "."), cache=TRUE}
 par(mar=c(5.1, 4.1, 0.25, 0.25))
 offspring <- rnbinom(10000, mu=R0, size=k)
 hist(offspring, xlab="Number of onward infections", main="")
 legend("topright", legend=paste0("R0=", round(R0, 2), " and k=", k))
 ```
 
-`r fig.counter.sim.traj <- length(fig.counter); fig.counter$sim.traj <- fig.counter.sim.traj`
+`r fig.counter.sim.traj <- length(fig.counter) + 1; fig.counter$sim.traj <- fig.counter.sim.traj`
 
 The final epidemic size was `r prettyNum(sim.outbreak$total_infected, ",")`.
 
@@ -73,20 +76,24 @@ The final epidemic size was `r prettyNum(sim.outbreak$total_infected, ",")`.
 
 The epidemic trajectories denoted by the incidence and prevalence curves are shown in the Figure `r fig.counter.sim.traj` below. Assuming that infectious individuals are reported at the time of recovery, the incidence curve shows the daily number of reported cases.
 
-```{r simulated_trajectories, echo=FALSE, fig.show='hold', fig.width=7, fig.height=4, fig.cap=paste0("Figure ", fig.counter, ". The daily incidence and prevalence of the simulated epidemic. Incidence is defined as the reported cases on each day."), cache=TRUE}
-par(mar=c(5.1, 4.1, 0.25, 0.25))
-plot(time_series_from_line_list(sim.outbreak),
-     xlab="Days since start of epidemic", ylab="Incidence per day", type="h")
-plot((1:sim.outbreak$total_dt)*dt,
-     sim.outbreak$prevalence,
-     xlab="Days since start of epidemic", ylab="Prevalence", type="l")
+```{r simulated_trajectories, fig.show='hold', fig.width=6, fig.height=4, fig.cap=paste0("Figure ", fig.counter$sim.traj, ". The daily incidence (A) and prevalence (B) of the simulated epidemic."), cache=TRUE}
+P1 <- ggplot(data.frame(time_series_from_line_list(sim.outbreak))) + theme_bw() +
+  geom_bar(aes(x=time, y=incidence), stat="identity") +
+  xlab("Days since start of epidemic") +
+  ylab("Incidence per day") + ggtitle("A")
+P2 <- ggplot(data.frame(x=(1:sim.outbreak$total_dt)*dt, Prevalence=sim.outbreak$prevalence)) +
+  theme_bw() + geom_line(aes(x=x, y=Prevalence)) +
+  xlab("Days since start of epidemic") + ggtitle("B")
+grid.arrange(P1, P2, ncol=1)
 ```
+
+# 2. Convert line list data and pathogen phylogeny into list objects
 
 ## Transmission Tree
 
 By setting \texttt{track_transmissions} to \texttt{TRUE} we can track who infected whom in the outbreak and thus reconstruct the transmission tree. From the transmission tree, we can infer the pathogen phylogeny which describes the ancestral relationship between pathogen isolates from infected individuals.
 
-```{r simulate_transmission_tree, echo=FALSE, cache=TRUE}
+```{r simulate_transmission_tree, echo=TRUE, cache=TRUE}
 sim.transmission.tree <- as.data.frame(get_transmission_tree(sim.outbreak$infected))
 sim.transmission.tree$from <- as.factor(sim.transmission.tree$from)
 sim.transmission.tree$to <- as.factor(sim.transmission.tree$to)
@@ -95,9 +102,9 @@ fig.counter.sim.graph <- fig.counter
 
 We can visualise the transmission network using the \texttt{get_transmission_tree} function. Below is the transmission network of the first 100 infected people.
 
-`r fig.counter.sim.graph <- length(fig.counter); fig.counter$sim.graph <- fig.counter.sim.graph`
+`r fig.counter.sim.graph <- length(fig.counter) + 1; fig.counter$sim.graph <- fig.counter.sim.graph`
 
-```{r simulate_graph, echo=FALSE, fig.width=7, fig.height=7, fig.cap=paste0("Figure ", fig.counter.sim.graph, ". Transmission tree."), cache=TRUE}
+```{r simulate_graph, echo=FALSE, fig.width=7, fig.height=7, fig.cap=paste0("Figure ", fig.counter$sim.graph, ". Transmission tree."), cache=TRUE}
 sim.graph <- network(sim.transmission.tree[1:100, 1:2], directed=TRUE)
 sim.graph %e% "length" <- sim.transmission.tree[1:100, 3]
 ggnet2(sim.graph, arrow.size = 9, node.alpha=.5, label=TRUE)
@@ -105,18 +112,16 @@ ggnet2(sim.graph, arrow.size = 9, node.alpha=.5, label=TRUE)
 
 ## Phylogeny 
 
-`r fig.counter.phylo <- length(fig.counter); fig.counter$phylo <- fig.counter.phylo`
+`r fig.counter.tree.plot <- length(fig.counter) + 1; fig.counter$tree.plot <- fig.counter.tree.plot`
 
-The phylogenetic tree is related to the transmission tree. In the case of the latter, parents are represented by internal nodes whereas in the case of phylogenies, parents are represented by an external node (tip). The \texttt{get_phylo} function produces the phylogenetic tree for a given outbreak. Figure `r fig.counter.phylo` is the phylogenetic tree of the first 100 individuals to be infected during the epidemic.
+The phylogenetic tree is related to the transmission tree. In the case of the latter, parents are represented by internal nodes whereas in the case of phylogenies, parents are represented by an external node (tip). The \texttt{get_phylo} function produces the phylogenetic tree for a given outbreak. Figure `r fig.counter.tree.plot` is the phylogenetic tree of the first 100 individuals to be infected during the epidemic.
 
 ```{r simulate_tree, cache=TRUE}
 tree <- get_phylo(sim.outbreak$infected)
 ```
 
 
-`r fig.counter.tree.plot <- length(fig.counter) + 1; fig.counter$tree.plot <- fig.counter.tree.plot`
-
-```{r simulate_tree_plot, echo=FALSE, fig.width=7, fig.height=11, fig.cap=paste0("Figure ", fig.counter$tree.plot, ". Phylogeny of the first 100 individuals to be infected during the epidemic."), cache=TRUE}
+```{r simulate_tree_plot, fig.width=7, fig.height=11, fig.cap=paste0("Figure ", fig.counter$tree.plot, ". Phylogeny of the first 100 individuals to be infected during the simulated epidemic, out of a total of $N=$", sim.outbreak$total_infected, "."), cache=TRUE}
 par(mar=c(0.5, 0.5, 0.5, 0.5))
 not.sampled.tips <- 101:length(tree$tip.label)
 subtree <- drop.tip(tree, not.sampled.tips)
@@ -139,44 +144,91 @@ head(epi_data)
 ```
 
 
-`r fig.counter.phylo2 <- length(fig.counter); fig.counter$phylo2 <- fig.counter.phylo2`
+`r fig.counter.phylo2 <- length(fig.counter) + 1; fig.counter$phylo2 <- fig.counter.phylo2`
 
 And the phylogeny of the randomly sampled individuals is given in Figure `r fig.counter.phylo2`.
 
-```{r time_series_from_tree,  echo=FALSE, fig.width=7, fig.height=11, fig.cap=paste0("Figure ", fig.counter$phylo2, ". Phylogeny of ", sampled.sim.outbreak$total_sampled, " randomly sampled individuals."), cache=TRUE}
+```{r time_series_from_tree,  fig.width=7, fig.height=11, fig.cap=paste0("Figure ", fig.counter$phylo2, ". Phylogeny of ", sampled.sim.outbreak$total_sampled, " randomly sampled individuals. This is a subtree of the full phylogeny of N=", sim.outbreak$total_infected, " individuals."), cache=TRUE}
 subtree <- drop.tip(reorder.phylo(tree, "postorder"), which(!(1:length(tree$tip.label) %in% sampled.sim.outbreak$sampled_individuals)))
 plot(subtree, show.tip.label=FALSE)
 ```
 
 
-```{r time_series_from_tree2}
+```{r time_series_from_tree2, eval=FALSE, echo=FALSE}
 gen_data <- time_series_from_tree(subtree, step_size=data.dt)
 ```
 
-
-We can also obtain time-series data for both at the same time:
-
-```{r time_series}
-all_data <- get_data(epi=sampled.sim.outbreak, phy=subtree, dt=data.dt)
-str(all_data)
+```{r gdata}
+gen_data <- EpiGenR::coal.intervals.in.discrete.time(EpiGenR::coalescent.intervals.datedPhylo(subtree), data.dt)
 ```
+
+<!--To ensure that the epidemiological and genetic data start and finish at the same time, 
+run:-->
+
+```{r alldata, eval=FALSE, echo=FALSE}
+#EpiGenR::align_epi_gen_data(epi_data, gen_data, data.dt, sampled.sim.outbreak$sampled_individuals)
+```
+
+# 3. Construct input objects for inference
 
 ## Create input files for EpiGenMCMC program
 
-```{r create_input}
+```{r create_input, eval=FALSE}
 param_list <- create_params_list(
   param_names=c("R0", "k", "rateI2R", "N", "S", "reporting", "time_before_data"), # All parameter values
   init_param_values=c(R0, k, 1/Tg, N, S, sampling.prob, 10), # Initial parameter values
-  params_to_estimate=c("R0", "k", "rateI2R", "reporting", "time_before_data"), # Names of parameters to be estimated
-  transform=c(NA, "inverse", "inverse", NA, NA), # The algorithm will estimate the value of the transformed parameter
+  params_to_estimate=c("R0", "k", "rateI2R", "reporting"), # Names of parameters to be estimated
+  transform=c(NA, NA, "inverse", NA, NA), # The algorithm will estimate the value of the transformed parameter
   prior=c("unif", "unif", "unif", "beta", "unif"), # Prior distribution
-  prior_params=list(c(1.0, 100.0), c(1.0, 10000.0), c(1.0, 30.0), c(1.0, 3.0), c(0.0, 300.0)), # Parameters for the prior distribution
-  proposal_params=list(c(0.5, 1.0, 100.0), c(1.0, 1.0, 10000.0), c(1.0, 1.0, 30.0), c(0.05, 0.0, 1.0), c(20.0, 0.0, 300.0))) # SD of proposal distribution, and the range of parameter values to be explored 
-mcmc_options <- create_mcmc_options (particles=1000, iterations=1000, log_every=1, pfilter_every=20, 
-                                     which_likelihood=0, # 0= use both epi and genetic data, 1=use only epi data, 2=use only genetic data
-                                     pfilter_threshold=1.0,
-                                 log_filename="log.txt", traj_filename="traj.txt")
+  prior_params=list(c(1.0, 100.0), c(1.0, 10000.0), c(1.0, 30.0), c(1.0, 3.0)), # Parameters for the prior distribution
+  proposal_params=list(c(0.5, 1.0, 100.0), c(0.1, 0.001, 10), c(1.0, 1.0, 30.0), c(0.05, 0.0, 1.0)),  
+  # proposal_params: each element of the list includes the standard deviation 
+  # of proposal distribution, and the range of parameter values to be explored
+  optimal_acceptance=0.234,
+  lower_acceptance=0.1, upper_acceptance=0.8,
+  adapt_every=20,
+  max_adapt_times=100
+)
 
+
+mcmc_options <- create_mcmc_options (
+  particles=1000, iterations=1000, log_every=1, pfilter_every=20, 
+  which_likelihood=0, # 0= use both epi and genetic data, 1=use only epi data, 2=use only genetic data
+  pfilter_threshold=1.0, # filter particles when ESS < this threshold
+  num_threads=4, # number of cores to use during parallelised particle filtering
+  log_filename="log.txt", traj_filename="traj.txt")
+
+input_files <- EpiGenR::generate_cpp_input_files(
+  dt=dt, params=param_list, initial_states=list(S=S, I=1, R=0),
+  data=list(epi_data, gen_data),
+  mcmc_options=mcmc_options
+  )
 ```
 
+# 4. Compile C++ program
+
+As the default clang compiler on Mac OSX does not support OpenMP, a separate compiler
+needs to be installed on the computer in order to compile code that uses OpenMP. The
+gcc compiler can be downloaded from here: https://gcc.gnu.org/wiki/openmp
+
+Usually to compile C++ code, the gcc compiler to use is 'g++-6'
+
+```{r C++ program, engine="bash", eval=FALSE, echo=TRUE}
+cd /path/to/EpiGenMCMC/src/
+g++-6 -fopenmp -lgsl -Imodels *.cpp models/SIR_offspring_distribution.cpp -o SIRmodel
+```
+
+# 5. Call the EpiGenMCMC program to estimate parameters
+
+I would recommend running the program from the terminal:
+
+```{r run_terminal, eval=FALSE, echo=TRUE}
+print(paste("/path/to/EpiGenMCMC/src/SIRmodel", input_files))
+```
+
+However it can also be run from the R console using:
+
+```{r run, eval=FALSE}
+EpiGenR::run_pMCMC("/path/to/EpiGenMCMC/src/SIRmodel", input_files, wait=TRUE)
+```
 
