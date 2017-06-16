@@ -211,10 +211,10 @@ param_list <- create_params_list(
   param_names=c("R0", "k", "rateI2R", "N", "S", "reporting", "time_before_data"), # All parameter values
   init_param_values=c(8e-5, k, 1/Tg, N, S, sampling.prob, 0), # Initial parameter values
   params_to_estimate=c("R0", "k", "rateI2R", "reporting"), # Names of parameters to be estimated
-  transform=c(NA, NA, "inverse", NA, NA), # The algorithm will estimate the value of the transformed parameter
-  prior=c("unif", "unif", "unif", "beta", "unif"), # Prior distribution
-  prior_params=list(c(0.0, 0.01), c(1.0, 10000.0), c(1.0, 30.0), c(1.0, 3.0)), # Parameters for the prior distribution
-  proposal_params=list(c(5e-5, 0.0, 0.01), c(0.1, 0.001, 10), c(1.0, 1.0, 30.0), c(0.05, 0.0, 1.0)),  
+  transform=c(NA, NA, NA, NA, NA), # The algorithm will estimate the value of the transformed parameter
+  prior=c("unif", "gamma", "unif", "beta", "unif"), # Prior distribution
+  prior_params=list(c(0.0, 0.01), c(2.5, 1/2.5), c(1.0, 30.0), c(1.0, 3.0)), # Parameters for the prior distribution
+  proposal_params=list(c(5e-5, 0.0, 0.01), c(0.1, 0.001, 5), c(1.0, 1.0, 30.0), c(0.05, 0.0, 1.0)),  
   # proposal_params: each element of the list includes the standard deviation 
   # of proposal distribution, and the range of parameter values to be explored
   optimal_acceptance=0.234,
