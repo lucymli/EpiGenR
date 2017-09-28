@@ -101,7 +101,11 @@ sampled_from_time_series <- function (time_series, prob, type="uniform") {
 get_tip_sample_times <- function (tr) {
   tip_labels <- tr$tip.label
   tip_labels_mat <- do.call(rbind, strsplit(tip_labels, "_"))
-  tip_sample_times <- as.numeric(tip_labels_mat[, 2])
+  if (any(grepl("-", tip_labels_mat[, 2]))) {
+    tip_sample_times <- lubridate::decimal_date(as.Date(tip_labels_mat[, 2]))
+  } else {
+    tip_sample_times <- as.numeric(tip_labels_mat[, 2])
+  }
   return(tip_sample_times)
 }
 
@@ -150,8 +154,13 @@ align_epi_gen_data <- function (epi, gen, dt, last_tip_time) {
                        matrix(0, nrow=first_epi_dt-tmrca_dt, ncol=ncol(epi)-1)), epi)
   }
   if (last_tip_dt > last_epi_dt) {
-    epi <- rbind(epi, cbind(seq(to=last_tip_dt*dt, by=dt, length.out=last_tip_dt- last_epi_dt),
-                            matrix(0, nrow=last_tip_dt- last_epi_dt, ncol=ncol(epi)-1)))
+    epi1 <- cbind(seq(to=last_tip_dt*dt, by=dt, length.out=last_tip_dt- last_epi_dt),
+                            matrix(0, nrow=last_tip_dt- last_epi_dt, ncol=ncol(epi)-1))
+    if (is.data.frame(epi)) {
+      epi1 <- data.frame(epi1)
+      names(epi1) <- names(epi)
+    }
+    epi <- rbind(epi, epi1)
   }
   return(list(epi=epi, gen=gen))
 }
