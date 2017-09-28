@@ -14,17 +14,28 @@ count_cases <- function (times, time_vector) {
 #' @export
 #'
 #' @examples
-time_series_from_line_list <- function (line_list, step_size=1, split_by=NULL) {
+time_series_from_line_list <- function (line_list, step_size=1, keep.dates=FALSE, split_by=NULL) {
   if (is.list(line_list)) {
     if ("total_sampled" %in% names(line_list)) line_list <- line_list$infected_sampled[, 3]
     else line_list <- line_list$infected[, 3]
+  }
+  if (keep.dates) {
+    line_list_dates <- line_list
+    min_date <- min(line_list_dates)
+    if (!is.null(split_by)) {
+      line_list_dates <- split(line_list, split_by)
+      min_date <- lapply(line_list_dates, min)
+    }
+  }
+  if (class(line_list)=="Date") {
+    line_list <- as.numeric(line_list - min(line_list))
   }
   rounded_times <- ceiling(line_list/step_size)
   max_rounded_time <- max(rounded_times)
   time_vec <- 1:max_rounded_time
   if (is.null(split_by)) {
     counts <- count_cases(rounded_times, time_vec)
-    time_series <- cbind(time=time_vec*step_size, incidence=counts)
+    time_series <- data.frame(time=time_vec*step_size, incidence=counts)
   } else {
     incidence <- lapply(split(rounded_times, split_by), function (x) {
       counts <- count_cases(x, time_vec)
@@ -32,6 +43,16 @@ time_series_from_line_list <- function (line_list, step_size=1, split_by=NULL) {
     })
     time_series <- data.frame(time=time_vec*step_size, do.call(cbind, incidence))
     names(time_series)[-1] <- as.character(split_by)
+  }
+  if (keep.dates) {
+    if (is.null(split_by)) {
+      time_series[, 1] <- min_date + (seq_len(nrow(time_series))-1)*step_size
+    } else {
+      time_series <- lapply(time_series, function (x) {
+        x[, 1] <- min_date + (seq_len(nrow(x))-1)*step_size
+        x
+      })
+    }
   }
   return(time_series)
 }
