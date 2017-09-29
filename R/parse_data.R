@@ -47,9 +47,11 @@ time_series_from_line_list <- function (line_list, step_size=1, keep.dates=FALSE
   if (keep.dates) {
     if (is.null(split_by)) {
       time_series[, 1] <- min_date + (seq_len(nrow(time_series))-1)*step_size
+      time_series[, 1] <- lubridate::decimal_date(time_series[, 1])
     } else {
       time_series <- lapply(time_series, function (x) {
         x[, 1] <- min_date + (seq_len(nrow(x))-1)*step_size
+        x[, 1] <- lubridate::decimal_date(x[, 1])
         x
       })
     }
@@ -150,8 +152,13 @@ align_epi_gen_data <- function (epi, gen, dt, last_tip_time) {
     gen <- c(gen, lapply(1:(last_epi_dt-last_tip_dt), function (x) list(binomial=0, intervals=0)))
   }
   if (tmrca_dt < first_epi_dt) {
-    epi <- rbind(cbind(seq(tmrca_dt*dt, by=dt, length.out=first_epi_dt-tmrca_dt),
-                       matrix(0, nrow=first_epi_dt-tmrca_dt, ncol=ncol(epi)-1)), epi)
+    epi1 <- cbind(seq(tmrca_dt*dt, by=dt, length.out=first_epi_dt-tmrca_dt),
+                       matrix(0, nrow=first_epi_dt-tmrca_dt, ncol=ncol(epi)-1))
+    if (is.data.frame(epi)) {
+     epi1 <- data.frame(epi1)
+     names(epi1) <- names(epi)
+    }
+    epi <- rbind(epi1, epi)
   }
   if (last_tip_dt > last_epi_dt) {
     epi1 <- cbind(seq(to=last_tip_dt*dt, by=dt, length.out=last_tip_dt- last_epi_dt),
@@ -169,21 +176,22 @@ align_epi_gen_data <- function (epi, gen, dt, last_tip_time) {
 #'
 #' @param epi
 #' @param phy
-#' @param dt
+#' @param dt; simulation time step defined in units of years
 #'
 #' @return
 #' @export
 #'
 #' @examples
-get_data <- function (epi=NULL, phy=NULL, dt=1) {
+get_data <- function (epi=NULL, phy=NULL, dt=1/365) {
   epi_data <- gen_data <- NULL
   use.epi <- !is.null(epi)
   use.gen <- !is.null(phy)
   if (!is.null(epi)) {
-    epi_data <- time_series_from_line_list(epi, dt)
+    epi_data <- time_series_from_line_list(epi, dt*365, keep.dates=class(epi)=="Date")
   }
   if (!is.null(phy)) {
-    gen_data <- time_series_from_tree(phy, dt)
+    coal.int <- coalescent.intervals.datedPhylo(phy)
+    gen_data <- coal.intervals.in.discrete.time(coal.int, dt)#time_series_from_tree(phy, dt)
   }
   if (use.epi&&use.gen) {
     all_data <- align_epi_gen_data(epi_data, gen_data, dt, get_last_tip_time(phy))
