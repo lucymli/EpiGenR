@@ -152,7 +152,7 @@ align_epi_gen_data <- function (epi, gen, dt, last_tip_time) {
     gen <- c(gen, lapply(1:(last_epi_dt-last_tip_dt), function (x) list(binomial=0, intervals=0)))
   }
   if (tmrca_dt < first_epi_dt) {
-    epi1 <- cbind(seq(tmrca_dt*dt, by=dt, length.out=first_epi_dt-tmrca_dt),
+    epi1 <- cbind(seq(to=epi[1,1]-dt, by=dt, length.out=first_epi_dt-tmrca_dt),
                        matrix(0, nrow=first_epi_dt-tmrca_dt, ncol=ncol(epi)-1))
     if (is.data.frame(epi)) {
      epi1 <- data.frame(epi1)
@@ -161,8 +161,8 @@ align_epi_gen_data <- function (epi, gen, dt, last_tip_time) {
     epi <- rbind(epi1, epi)
   }
   if (last_tip_dt > last_epi_dt) {
-    epi1 <- cbind(seq(to=last_tip_dt*dt, by=dt, length.out=last_tip_dt- last_epi_dt),
-                            matrix(0, nrow=last_tip_dt- last_epi_dt, ncol=ncol(epi)-1))
+    epi1 <- cbind(seq(from=max(epi[, 1])*dt+dt, by=dt, length.out=length(gen)-nrow(epi)),
+                            matrix(0, nrow=length(gen)-nrow(epi), ncol=ncol(epi)-1))
     if (is.data.frame(epi)) {
       epi1 <- data.frame(epi1)
       names(epi1) <- names(epi)
