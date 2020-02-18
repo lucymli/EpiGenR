@@ -8,7 +8,7 @@ Description: This package contains functions to simulate epidemic data, parse ex
 License: MIT
 LazyData: TRUE
 Imports:
-    Rcpp (>= 0.12.5),
+    Rcpp (>= 1.0.1),
     ape,
     phyclust,
     seqinr,
