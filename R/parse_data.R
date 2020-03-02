@@ -102,11 +102,11 @@ sampled_from_time_series <- function (time_series, prob, type="uniform") {
 
 get_tip_sample_times <- function (tr) {
   tip_labels <- tr$tip.label
-  tip_labels_mat <- do.call(rbind, strsplit(tip_labels, "_"))
-  if (any(grepl("-", tip_labels_mat[, 2]))) {
-    tip_sample_times <- lubridate::decimal_date(as.Date(tip_labels_mat[, 2]))
+  tip_labels_str <- sapply(strsplit(tip_labels, "_"), tail, 1)
+  if (any(grepl("-", tip_labels_str))) {
+    tip_sample_times <- lubridate::decimal_date(as.Date(tip_labels_str))
   } else {
-    tip_sample_times <- as.numeric(tip_labels_mat[, 2])
+    tip_sample_times <- as.numeric(tip_labels_str)
   }
   return(tip_sample_times)
 }
