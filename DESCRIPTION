@@ -16,7 +16,9 @@ Imports:
     ggplot2,
     coda,
     dplyr,
-    magrittr
+    magrittr,
+    gridExtra,
+    reshape2
 LinkingTo:
     Rcpp
 Suggests: knitr,
