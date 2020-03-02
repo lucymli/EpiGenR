@@ -22,7 +22,7 @@ extract_gglegend <- function (Plot) {
 #' @export
 #'
 #' @examples
-plot.mcmc.trace <- function (x, burnin=NULL, excludes=NULL) {
+plot_mcmc_trace <- function (x, burnin=NULL, excludes=NULL) {
   if (!is.null(burnin)) {
     x <- x[round(nrow(x)*burnin):nrow(x), ]
   }
@@ -49,7 +49,7 @@ plot.mcmc.trace <- function (x, burnin=NULL, excludes=NULL) {
 #' @export
 #'
 #' @examples
-plot.posterior <- function (param.name, dataset, new.param.name=NULL, fill.colours=NULL, show.legend=TRUE) {
+plot_posterior <- function (param.name, dataset, new.param.name=NULL, fill.colours=NULL, show.legend=TRUE) {
   require (ggplot2)
   require(lubridate)
   require(coda)
