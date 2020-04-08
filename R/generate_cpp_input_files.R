@@ -10,48 +10,58 @@
 #' @examples
 generate_cpp_input_files <- function(dt, params, mcmc_options, initial_states, data,
                                      params_file=NULL, mcmc_options_file=NULL, initial_states_file=NULL, data_file=NULL) {
-  if (is.null(params_file)) params_file <- tempfile(fileext="_params.txt")
-  if (is.null(mcmc_options_file)) mcmc_options_file <- tempfile(fileext="_mcmc_options.txt")
-  if (is.null(initial_states_file)) initial_states_file <- tempfile(fileext="_initial_states.txt")
-  if (is.null(data_file)) data_file <- tempfile()
-  # file.create(data_file)
-  if (mcmc_options["which_likelihood"]==0) num_dt <- nrow(data[[1]])
-  else if (mcmc_options["which_likelihood"]==1) num_dt <- nrow(data)
-  else num_dt <- length(data)
-  filenames <- c()
-  if (mcmc_options["which_likelihood"]<2) {
-    epi_name <- paste0(data_file, "_epi_data.txt")
-    if (mcmc_options["which_likelihood"]==0) epi_data <- data[[1]]
-    else epi_data <- data
-    if (ncol(epi_data) == 2) {
-      cat(num_dt, dt, 1, epi_data[, 2], sep="\n", file=epi_name)
-    } else {
-      cat(num_dt, dt, ncol(epi_data)-1, sep="\n", file=epi_name)
-      write.table(epi_data[, -1], quote=FALSE, row.names=FALSE, col.names=FALSE, sep=" ",
-                  file=epi_name, append=TRUE)
+  if (is.null(params_file)) {
+    params_file <- tempfile(fileext="_params.txt")
+    writeLines(unlist(lapply(params, paste, collapse=" ")), params_file)
+  }
+  if (is.null(mcmc_options_file)) {
+    mcmc_options_file <- tempfile(fileext="_mcmc_options.txt")
+    file.create(mcmc_options_file)
+    out <- sapply(seq_along(mcmc_options), function (i) {
+      cat(names(mcmc_options)[i], " ", mcmc_options[i], "\n", sep="", file=mcmc_options_file, append=TRUE)
+    })
+  }
+  if (is.null(initial_states_file)) {
+    initial_states_file <- tempfile(fileext="_initial_states.txt")
+    cat(initial_states, sep="\n", file=initial_states_file)
+  }
+  if (is.null(data_file)) {
+    data_file <- tempfile()
+    if ((length(data)==2) && is.list(data)) which_lik <- 0
+    else if (is.data.frame(data) || is.matrix(data)) which_lik <- 1
+    else which_lik <- 2
+    if (which_lik==0) num_dt <- nrow(data[[1]])
+    else if (which_lik==1) num_dt <- nrow(data)
+    else num_dt <- length(data)
+    filenames <- c()
+    if (which_lik<2) {
+      epi_name <- paste0(data_file, "_epi_data.txt")
+      if (which_lik==0) epi_data <- data[[1]]
+      else epi_data <- data
+      if (ncol(epi_data) == 2) {
+        cat(num_dt, dt, 1, epi_data[, 2], sep="\n", file=epi_name)
+      } else {
+        cat(num_dt, dt, ncol(epi_data)-1, sep="\n", file=epi_name)
+        write.table(epi_data[, -1], quote=FALSE, row.names=FALSE, col.names=FALSE, sep=" ",
+                    file=epi_name, append=TRUE)
+      }
+      filenames <- c(filenames, epi_name)
     }
-    filenames <- c(filenames, epi_name)
+    if (which_lik!=1) {
+      mcmc_options["num_trees"] <- 1
+      gen_name <- paste0(data_file, "_gen_data.txt")
+      cat(num_dt, dt, sep="\n", file=gen_name)
+      if (which_lik==0) gen_data <- data[[2]]
+      else gen_data <- data
+      out <- lapply(gen_data, function (x) {
+        cat(paste(x$binomial, collapse=" "), sep="\n", file=gen_name, append=TRUE)
+      })
+      out <- lapply(gen_data, function (x) {
+        cat(paste(x$intervals, collapse=" "), sep="\n", file=gen_name, append=TRUE)
+      })
+      filenames <- c(filenames, gen_name)
+    }
   }
-  if (mcmc_options["which_likelihood"]!=1) {
-    mcmc_options["num_trees"] <- 1
-    gen_name <- paste0(data_file, "_gen_data.txt")
-    cat(num_dt, dt, sep="\n", file=gen_name)
-    if (mcmc_options["which_likelihood"]==0) gen_data <- data[[2]]
-    else gen_data <- data
-    out <- lapply(gen_data, function (x) {
-      cat(paste(x$binomial, collapse=" "), sep="\n", file=gen_name, append=TRUE)
-    })
-    out <- lapply(gen_data, function (x) {
-      cat(paste(x$intervals, collapse=" "), sep="\n", file=gen_name, append=TRUE)
-    })
-    filenames <- c(filenames, gen_name)
-  }
-  writeLines(unlist(lapply(params, paste, collapse=" ")), params_file)
-  file.create(mcmc_options_file)
-  out <- sapply(seq_along(mcmc_options), function (i) {
-    cat(names(mcmc_options)[i], " ", mcmc_options[i], "\n", sep="", file=mcmc_options_file, append=TRUE)
-  })
-  cat(initial_states, sep="\n", file=initial_states_file)
   cpp_input_files <- c(params_file=params_file, mcmc_options_file=mcmc_options_file, initial_states_file=initial_states_file, data_files=paste(filenames, collapse=" "))
   commandline.command <- paste(cpp_input_files, collapse=" ")
   return (commandline.command)
