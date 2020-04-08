@@ -8,7 +8,7 @@
 #' @export
 #'
 #' @examples
-generate_cpp_input_files <- function(dt, params, mcmc_options, initial_states, data,
+generate_cpp_input_files <- function(dt=NULL, params=NULL, mcmc_options=NULL, initial_states=NULL, data=NULL,
                                      params_file=NULL, mcmc_options_file=NULL, initial_states_file=NULL, data_file=NULL) {
   if (is.null(params_file)) {
     params_file <- tempfile(fileext="_params.txt")
