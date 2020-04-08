@@ -61,8 +61,9 @@ generate_cpp_input_files <- function(dt=NULL, params=NULL, mcmc_options=NULL, in
       })
       filenames <- c(filenames, gen_name)
     }
+    data_file <- filenames
   }
-  cpp_input_files <- c(params_file=params_file, mcmc_options_file=mcmc_options_file, initial_states_file=initial_states_file, data_files=paste(filenames, collapse=" "))
+  cpp_input_files <- c(params_file=params_file, mcmc_options_file=mcmc_options_file, initial_states_file=initial_states_file, data_files=paste(data_file, collapse=" "))
   commandline.command <- paste(cpp_input_files, collapse=" ")
   return (commandline.command)
 }
