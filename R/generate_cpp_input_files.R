@@ -12,17 +12,23 @@ generate_cpp_input_files <- function(dt=NULL, params=NULL, mcmc_options=NULL, in
                                      params_file=NULL, mcmc_options_file=NULL, initial_states_file=NULL, data_file=NULL) {
   if (is.null(params_file)) {
     params_file <- tempfile(fileext="_params.txt")
+  }
+  if (!is.null(params)) {
     writeLines(unlist(lapply(params, paste, collapse=" ")), params_file)
   }
   if (is.null(mcmc_options_file)) {
     mcmc_options_file <- tempfile(fileext="_mcmc_options.txt")
     file.create(mcmc_options_file)
+  }
+  if (!is.null(mcmc_options)) {
     out <- sapply(seq_along(mcmc_options), function (i) {
       cat(names(mcmc_options)[i], " ", mcmc_options[i], "\n", sep="", file=mcmc_options_file, append=TRUE)
     })
   }
   if (is.null(initial_states_file)) {
     initial_states_file <- tempfile(fileext="_initial_states.txt")
+  }
+  if (!is.null(initial_states)) {
     cat(initial_states, sep="\n", file=initial_states_file)
   }
   if (is.null(data_file)) {
@@ -63,7 +69,8 @@ generate_cpp_input_files <- function(dt=NULL, params=NULL, mcmc_options=NULL, in
     }
     data_file <- filenames
   }
-  cpp_input_files <- c(params_file=params_file, mcmc_options_file=mcmc_options_file, initial_states_file=initial_states_file, data_files=paste(data_file, collapse=" "))
+  cpp_input_files <- c(params_file=params_file, mcmc_options_file=mcmc_options_file,
+                       initial_states_file=initial_states_file, data_files=paste(data_file, collapse=" "))
   commandline.command <- paste(cpp_input_files, collapse=" ")
   return (commandline.command)
 }
